@@ -66,7 +66,7 @@ export function saveSubmission(
 ): SaveResult {
   const dirName = buildDirName(problem)
   const ext = getFileExtension(detail.lang.name)
-  const dirPath = join(repoPath, dirName)
+  const dirPath = join(repoPath, problem.difficulty, dirName)
   const filePath = join(dirPath, `solution${ext}`)
 
   const header = buildHeader(problem, detail)

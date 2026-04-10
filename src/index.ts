@@ -2,6 +2,8 @@ import { Command } from 'commander'
 import { submitCommand } from './commands/submit.js'
 import { configGetCommand, configSetCommand, configListCommand } from './commands/config.js'
 import { initCommand } from './commands/init.js'
+import { migrateCommand } from './commands/migrate.js'
+import { loadConfig } from './config/loader.js'
 import { logger } from './utils/logger.js'
 
 const program = new Command()
@@ -56,6 +58,15 @@ program
   .description('Interactive setup: create config file with credentials')
   .action(async () => {
     await initCommand()
+  })
+
+program
+  .command('migrate')
+  .description('Reorganize flat problem directories into difficulty-based subdirectories (Easy/Medium/Hard)')
+  .option('--dry-run', 'Preview moves without actually moving files', false)
+  .action(async (options: { dryRun: boolean }) => {
+    const config = loadConfig()
+    await migrateCommand(config.github.repoPath, { dryRun: options.dryRun })
   })
 
 program.parseAsync(process.argv).catch((err: unknown) => {

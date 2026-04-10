@@ -76,4 +76,29 @@ describe('saveSubmission', () => {
     const result2 = saveSubmission(testRepo, { ...problem, frontendQuestionId: '2', titleSlug: 'add-two-numbers', title: 'Add Two Numbers', difficulty: 'Medium' }, goDetail)
     expect(result2.filePath).toContain('solution.go')
   })
+
+  it('saves Easy problem under Easy/ directory', () => {
+    const result = saveSubmission(testRepo, { ...problem, difficulty: 'Easy' }, detail)
+    expect(result.filePath).toContain('/Easy/')
+    expect(result.dirPath).toContain('/Easy/')
+  })
+
+  it('saves Medium problem under Medium/ directory', () => {
+    const mediumProblem = { ...problem, frontendQuestionId: '3', titleSlug: 'longest-substring', title: 'Longest Substring', difficulty: 'Medium' as const }
+    const result = saveSubmission(testRepo, mediumProblem, detail)
+    expect(result.filePath).toContain('/Medium/')
+    expect(result.dirPath).toContain('/Medium/')
+  })
+
+  it('saves Hard problem under Hard/ directory', () => {
+    const hardProblem = { ...problem, frontendQuestionId: '42', titleSlug: 'trapping-rain-water', title: 'Trapping Rain Water', difficulty: 'Hard' as const }
+    const result = saveSubmission(testRepo, hardProblem, detail)
+    expect(result.filePath).toContain('/Hard/')
+    expect(result.dirPath).toContain('/Hard/')
+  })
+
+  it('full path is repoPath/difficulty/dirName/solution.ext', () => {
+    const result = saveSubmission(testRepo, problem, detail)
+    expect(result.filePath).toBe(join(testRepo, 'Easy', '0001-two-sum', 'solution.py'))
+  })
 })
