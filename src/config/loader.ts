@@ -28,14 +28,14 @@ export function loadConfig(): Config {
 
 export function saveConfig(config: Config): void {
   if (!existsSync(CONFIG_DIR)) {
-    mkdirSync(CONFIG_DIR, { recursive: true })
+    mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
   }
   const result = configSchema.safeParse(config)
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n')
     throw new Error(`Invalid config:\n${issues}`)
   }
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8')
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 })
 }
 
 export function configExists(): boolean {

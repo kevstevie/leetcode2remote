@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { extractChromeCookie } from '../../../src/services/cookie/chrome.js'
 
 vi.mock('child_process', () => ({
-  execSync: vi.fn(),
+  execFileSync: vi.fn(),
 }))
 
 vi.mock('better-sqlite3', () => {
@@ -20,13 +20,13 @@ vi.mock('crypto', async (importOriginal) => {
   }
 })
 
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import Database from 'better-sqlite3'
 import { pbkdf2Sync, createDecipheriv } from 'crypto'
 
 describe('extractChromeCookie', () => {
   beforeEach(() => {
-    vi.mocked(execSync).mockReset()
+    vi.mocked(execFileSync).mockReset()
     vi.mocked(Database).mockReset()
     vi.mocked(pbkdf2Sync).mockReset()
     vi.mocked(createDecipheriv).mockReset()
@@ -43,7 +43,7 @@ describe('extractChromeCookie', () => {
       close: vi.fn(),
     }
     vi.mocked(Database).mockReturnValue(mockDb as never)
-    vi.mocked(execSync).mockReturnValue(Buffer.from('dummy-password\n'))
+    vi.mocked(execFileSync).mockReturnValue(Buffer.from('dummy-password\n'))
 
     const result = extractChromeCookie('/fake/path/Cookies')
     expect(result).toBe('plain-session-value')
@@ -57,14 +57,14 @@ describe('extractChromeCookie', () => {
       close: vi.fn(),
     }
     vi.mocked(Database).mockReturnValue(mockDb as never)
-    vi.mocked(execSync).mockReturnValue(Buffer.from('dummy-password\n'))
+    vi.mocked(execFileSync).mockReturnValue(Buffer.from('dummy-password\n'))
 
     expect(() => extractChromeCookie('/fake/path/Cookies')).toThrow(
       'LEETCODE_SESSION cookie not found'
     )
   })
 
-  it('throws when keychain access fails', () => {
+  it('throws sanitized error when keychain access fails', () => {
     const mockDb = {
       prepare: vi.fn().mockReturnValue({
         get: vi.fn().mockReturnValue(null),
@@ -72,11 +72,13 @@ describe('extractChromeCookie', () => {
       close: vi.fn(),
     }
     vi.mocked(Database).mockReturnValue(mockDb as never)
-    vi.mocked(execSync).mockImplementation(() => {
+    vi.mocked(execFileSync).mockImplementation(() => {
       throw new Error('security: SecKeychainSearchCopyNext: The specified item could not be found')
     })
 
-    expect(() => extractChromeCookie('/fake/path/Cookies')).toThrow()
+    expect(() => extractChromeCookie('/fake/path/Cookies')).toThrow(
+      'Failed to retrieve password from macOS Keychain'
+    )
   })
 
   it('decrypts v10 encrypted cookie', () => {
@@ -105,7 +107,7 @@ describe('extractChromeCookie', () => {
       close: vi.fn(),
     }
     vi.mocked(Database).mockReturnValue(mockDb as never)
-    vi.mocked(execSync).mockReturnValue(Buffer.from('my-password\n'))
+    vi.mocked(execFileSync).mockReturnValue(Buffer.from('my-password\n'))
 
     const result = extractChromeCookie('/fake/path/Cookies')
     expect(result).toBe('decrypted-session-token')
