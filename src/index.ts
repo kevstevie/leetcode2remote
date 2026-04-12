@@ -2,7 +2,9 @@ import { Command } from 'commander'
 import { submitCommand } from './commands/submit.js'
 import { configGetCommand, configSetCommand, configListCommand } from './commands/config.js'
 import { initCommand } from './commands/init.js'
+import { cookieCommand, cookieListCommand } from './commands/cookie.js'
 import { logger } from './utils/logger.js'
+import type { BrowserName } from './services/cookie/types.js'
 
 const program = new Command()
 
@@ -56,6 +58,19 @@ program
   .description('Interactive setup: create config file with credentials')
   .action(async () => {
     await initCommand()
+  })
+
+program
+  .command('cookie')
+  .description('Auto-extract LEETCODE_SESSION cookie from browser and save to config')
+  .option('--browser <name>', 'Browser to extract from (chrome|firefox|brave|edge|arc)')
+  .option('--list', 'List detected browsers and cookie status')
+  .action(async (options: { browser?: string; list?: boolean }) => {
+    if (options.list) {
+      cookieListCommand()
+      return
+    }
+    await cookieCommand({ browser: options.browser as BrowserName | undefined })
   })
 
 program.parseAsync(process.argv).catch((err: unknown) => {

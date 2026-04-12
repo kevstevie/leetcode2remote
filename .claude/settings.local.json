@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(chmod +x /Users/hongseongmin/leetcode-commit/dist/index.js)",
+      "Bash(node /Users/hongseongmin/leetcode-commit/dist/index.js --help)",
+      "Bash(node:*)",
+      "Bash(npm audit:*)"
+    ]
+  }
+}
