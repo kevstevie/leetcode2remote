@@ -34,8 +34,8 @@ export function extractLeetCodeSession(options: CookieExtractOptions): string {
   throw new Error(`Failed to extract cookie from any browser:\n${errors.join('\n')}`)
 }
 
-export function listDetectedBrowsers(): (DetectedBrowser & { available: boolean })[] {
-  return detectBrowsers().map((b) => ({ ...b, available: true }))
+export function listDetectedBrowsers(): DetectedBrowser[] {
+  return detectBrowsers()
 }
 
 export type { BrowserName, CookieExtractOptions, DetectedBrowser }

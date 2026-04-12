@@ -13,8 +13,6 @@ const CHROME_COOKIE_PATHS: Record<BrowserName, string> = {
 
 function getFirefoxCookiePath(): string {
   const firefoxProfilesDir = join(homedir(), 'Library/Application Support/Firefox/Profiles')
-  if (!existsSync(firefoxProfilesDir)) return ''
-
   try {
     const profiles = readdirSync(firefoxProfilesDir)
     const defaultRelease = profiles.find((p) => p.endsWith('.default-release'))

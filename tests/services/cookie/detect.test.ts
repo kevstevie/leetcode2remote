@@ -27,7 +27,6 @@ describe('detectBrowsers', () => {
   })
 
   it('returns firefox when firefox profile exists', () => {
-    // existsSync returns true for Profiles dir and for the final cookies.sqlite path
     vi.mocked(existsSync).mockImplementation((p) =>
       typeof p === 'string' && p.includes('Firefox')
     )
