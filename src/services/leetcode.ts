@@ -14,6 +14,9 @@ const PROBLEM_INFO_QUERY = `
         titleSlug
         title
         difficulty
+        topicTags {
+          name
+        }
       }
     }
   }
@@ -119,6 +122,7 @@ export class LeetCodeClient {
           titleSlug: string
           title: string
           difficulty: string
+          topicTags?: Array<{ name: string }>
         }>
       }
     }>(PROBLEM_INFO_QUERY, {
@@ -137,7 +141,13 @@ export class LeetCodeClient {
       )
     }
 
-    return problem as ProblemInfo
+    return {
+      frontendQuestionId: problem.frontendQuestionId,
+      titleSlug: problem.titleSlug,
+      title: problem.title,
+      difficulty: problem.difficulty as ProblemInfo['difficulty'],
+      topicTags: (problem.topicTags ?? []).map((t) => t.name),
+    }
   }
 
   async getLatestAcceptedSubmission(titleSlug: string): Promise<Submission> {

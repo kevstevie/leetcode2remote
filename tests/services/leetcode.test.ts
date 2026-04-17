@@ -33,8 +33,20 @@ describe('LeetCodeClient', () => {
       mockGqlResponse({
         problemsetQuestionList: {
           questions: [
-            { frontendQuestionId: '1', titleSlug: 'two-sum', title: 'Two Sum', difficulty: 'Easy' },
-            { frontendQuestionId: '10', titleSlug: 'regular-expression-matching', title: 'Regex', difficulty: 'Hard' },
+            {
+              frontendQuestionId: '1',
+              titleSlug: 'two-sum',
+              title: 'Two Sum',
+              difficulty: 'Easy',
+              topicTags: [{ name: 'Array' }, { name: 'Hash Table' }],
+            },
+            {
+              frontendQuestionId: '10',
+              titleSlug: 'regular-expression-matching',
+              title: 'Regex',
+              difficulty: 'Hard',
+              topicTags: [],
+            },
           ],
         },
       })
@@ -42,6 +54,19 @@ describe('LeetCodeClient', () => {
       expect(info.frontendQuestionId).toBe('1')
       expect(info.titleSlug).toBe('two-sum')
       expect(info.difficulty).toBe('Easy')
+      expect(info.topicTags).toEqual(['Array', 'Hash Table'])
+    })
+
+    it('returns empty topicTags when absent from response', async () => {
+      mockGqlResponse({
+        problemsetQuestionList: {
+          questions: [
+            { frontendQuestionId: '1', titleSlug: 'two-sum', title: 'Two Sum', difficulty: 'Easy' },
+          ],
+        },
+      })
+      const info = await client.getProblemInfo(1)
+      expect(info.topicTags).toEqual([])
     })
 
     it('throws when problem not found', async () => {
@@ -115,7 +140,7 @@ describe('LeetCodeClient', () => {
     it('chains all three queries', async () => {
       mockGqlResponse({
         problemsetQuestionList: {
-          questions: [{ frontendQuestionId: '1', titleSlug: 'two-sum', title: 'Two Sum', difficulty: 'Easy' }],
+          questions: [{ frontendQuestionId: '1', titleSlug: 'two-sum', title: 'Two Sum', difficulty: 'Easy', topicTags: [{ name: 'Array' }] }],
         },
       })
       mockGqlResponse({

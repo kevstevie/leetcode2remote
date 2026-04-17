@@ -12,6 +12,7 @@ const problem: ProblemInfo = {
   titleSlug: 'two-sum',
   title: 'Two Sum',
   difficulty: 'Easy',
+  topicTags: ['Array', 'Hash Table'],
 }
 
 const detail: SubmissionDetail = {
@@ -48,6 +49,19 @@ describe('saveSubmission', () => {
     expect(content).toContain('Easy')
     expect(content).toContain('https://leetcode.com/problems/two-sum/')
     expect(content).toContain(detail.code)
+  })
+
+  it('includes Tags line in header when tags present', () => {
+    const result = saveSubmission(testRepo, problem, detail)
+    const content = readFileSync(result.filePath, 'utf-8')
+    expect(content).toContain('Tags: Array, Hash Table')
+  })
+
+  it('omits Tags line when topicTags is empty', () => {
+    const noTagProblem = { ...problem, topicTags: [] }
+    const result = saveSubmission(testRepo, noTagProblem, detail)
+    const content = readFileSync(result.filePath, 'utf-8')
+    expect(content).not.toContain('Tags:')
   })
 
   it('detects duplicate when content unchanged', () => {

@@ -44,6 +44,10 @@ function buildHeader(problem: ProblemInfo, detail: SubmissionDetail): string {
     `Submitted: ${date}`,
   ]
 
+  if (problem.topicTags.length > 0) {
+    lines.push(`Tags: ${problem.topicTags.join(', ')}`)
+  }
+
   if (style.multi) {
     const [open, prefix, close] = style.multi
     return [open, ...lines.map((l) => `${prefix} ${l}`), close, ''].join('\n')

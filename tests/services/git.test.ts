@@ -28,6 +28,7 @@ const problem: ProblemInfo = {
   titleSlug: 'two-sum',
   title: 'Two Sum',
   difficulty: 'Easy',
+  topicTags: ['Array', 'Hash Table'],
 }
 
 describe('GitService', () => {
@@ -53,6 +54,27 @@ describe('GitService', () => {
       expect.stringContaining('#1 - Two Sum')
     )
     expect(result.commitHash).toBe('abc1234')
+  })
+
+  it('addAndCommit includes tags in commit message when present', async () => {
+    const { GitService } = await import('../../src/services/git.js')
+    const service = new GitService('/fake/repo')
+
+    await service.addAndCommit('/fake/repo/0001-two-sum/solution.py', problem, 'python3')
+    expect(mockGit.commit).toHaveBeenCalledWith(
+      expect.stringContaining('[Array, Hash Table]')
+    )
+  })
+
+  it('addAndCommit omits tag bracket when tags are empty', async () => {
+    const { GitService } = await import('../../src/services/git.js')
+    const service = new GitService('/fake/repo')
+
+    const problemNoTags: ProblemInfo = { ...problem, topicTags: [] }
+    await service.addAndCommit('/fake/repo/file.py', problemNoTags, 'python3')
+    const message = mockGit.commit.mock.calls[0][0] as string
+    expect(message).not.toMatch(/\[\s*\]/)
+    expect(message).toContain('[python3]')
   })
 
   it('throws when not a git repository', async () => {

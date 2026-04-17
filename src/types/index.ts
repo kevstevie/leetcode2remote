@@ -13,6 +13,7 @@ export interface ProblemInfo {
   titleSlug: string
   title: string
   difficulty: 'Easy' | 'Medium' | 'Hard'
+  topicTags: string[]
 }
 
 export interface Submission {

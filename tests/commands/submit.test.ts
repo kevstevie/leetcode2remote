@@ -40,7 +40,7 @@ const config = {
 }
 
 const fetchResult = {
-  problem: { frontendQuestionId: '1', titleSlug: 'two-sum', title: 'Two Sum', difficulty: 'Easy' },
+  problem: { frontendQuestionId: '1', titleSlug: 'two-sum', title: 'Two Sum', difficulty: 'Easy', topicTags: ['Array', 'Hash Table'] },
   submission: { id: '42', lang: 'python3', statusDisplay: 'Accepted', timestamp: '1700000000' },
   detail: {
     code: 'return []',

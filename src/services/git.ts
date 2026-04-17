@@ -8,7 +8,9 @@ export interface CommitResult {
 }
 
 function buildCommitMessage(problem: ProblemInfo, lang: string): string {
-  return `feat: solve #${problem.frontendQuestionId} - ${problem.title} (${problem.difficulty}) [${lang}]`
+  const base = `feat: solve #${problem.frontendQuestionId} - ${problem.title} (${problem.difficulty}) [${lang}]`
+  if (problem.topicTags.length === 0) return base
+  return `${base} [${problem.topicTags.join(', ')}]`
 }
 
 export class GitService {
