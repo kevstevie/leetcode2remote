@@ -64,9 +64,10 @@ program
   .command('migrate')
   .description('Reorganize flat problem directories into difficulty-based subdirectories (Easy/Medium/Hard)')
   .option('--dry-run', 'Preview moves without actually moving files', false)
-  .action(async (options: { dryRun: boolean }) => {
+  .option('--no-push', 'Commit but do not push to remote')
+  .action(async (options: { dryRun: boolean; push: boolean }) => {
     const config = loadConfig()
-    await migrateCommand(config.github.repoPath, { dryRun: options.dryRun })
+    await migrateCommand(config.github.repoPath, { dryRun: options.dryRun, noPush: !options.push })
   })
 
 program.parseAsync(process.argv).catch((err: unknown) => {

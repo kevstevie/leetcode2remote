@@ -52,6 +52,21 @@ export class GitService {
     return { commitHash, commitMessage: message }
   }
 
+  async addManyAndCommit(paths: string[], message: string): Promise<CommitResult> {
+    await this.validateRepo()
+
+    await this.git.add(paths)
+
+    const status = await this.git.status()
+    if (status.staged.length === 0) {
+      throw new Error('No changes to commit after migration.')
+    }
+
+    const result = await this.git.commit(message)
+    const commitHash = result.commit ?? 'unknown'
+    return { commitHash, commitMessage: message }
+  }
+
   async push(): Promise<void> {
     try {
       await this.git.push()

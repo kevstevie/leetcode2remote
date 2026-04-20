@@ -1,6 +1,7 @@
 import { readdirSync, renameSync, existsSync, readFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { logger } from '../utils/logger.js'
+import { GitService } from '../services/git.js'
 
 const DIFFICULTY_DIRS = new Set(['Easy', 'Medium', 'Hard'])
 const PROBLEM_DIR_PATTERN = /^\d{4}-/
@@ -10,6 +11,7 @@ const SOLUTION_EXTENSIONS = ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.cs', 
 
 interface MigrateOptions {
   dryRun: boolean
+  noPush: boolean
 }
 
 interface MigrateResult {
@@ -77,10 +79,31 @@ export async function migrateCommand(repoPath: string, options: MigrateOptions):
     logger.info(`Moved: ${entry.name} → ${difficulty}/${entry.name}`)
   }
 
-  if (!options.dryRun) {
-    logger.info(`Migration complete: ${result.moved.length} moved, ${result.skipped.length} skipped`)
-  } else {
+  if (options.dryRun) {
     logger.info(`Dry run: ${result.planned.length} would be moved, ${result.skipped.length} skipped`)
+    return result
+  }
+
+  logger.info(`Migration complete: ${result.moved.length} moved, ${result.skipped.length} skipped`)
+
+  if (result.moved.length === 0) {
+    return result
+  }
+
+  logger.step('Committing migration...')
+  const git = new GitService(repoPath)
+  await git.validateRepo()
+
+  const allPaths = result.moved.flatMap(({ from, to }) => [from, to])
+  const message = `chore: migrate ${result.moved.length} solution(s) to difficulty directories`
+  const commitResult = await git.addManyAndCommit(allPaths, message)
+  logger.success(`Committed: ${commitResult.commitMessage}`)
+  logger.info(`Commit hash: ${commitResult.commitHash}`)
+
+  if (!options.noPush) {
+    logger.step('Pushing to remote...')
+    await git.push()
+    logger.success('Pushed to remote repository')
   }
 
   return result
