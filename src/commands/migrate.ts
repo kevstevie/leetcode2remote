@@ -2,6 +2,7 @@ import { readdirSync, renameSync, existsSync, readFileSync, mkdirSync } from 'fs
 import { join } from 'path'
 import { logger } from '../utils/logger.js'
 import { GitService } from '../services/git.js'
+import { runReadmeUpdate } from './readme.js'
 
 const DIFFICULTY_DIRS = new Set(['Easy', 'Medium', 'Hard'])
 const PROBLEM_DIR_PATTERN = /^\d{4}-/
@@ -12,6 +13,7 @@ const SOLUTION_EXTENSIONS = ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.cs', 
 interface MigrateOptions {
   dryRun: boolean
   noPush: boolean
+  noReadme?: boolean
 }
 
 interface MigrateResult {
@@ -104,6 +106,14 @@ export async function migrateCommand(repoPath: string, options: MigrateOptions):
     logger.step('Pushing to remote...')
     await git.push()
     logger.success('Pushed to remote repository')
+  }
+
+  if (!options.noReadme) {
+    await runReadmeUpdate(repoPath, {
+      dryRun: false,
+      noCommit: false,
+      noPush: options.noPush,
+    })
   }
 
   return result

@@ -4,6 +4,7 @@ import { saveSubmission } from '../services/file.js'
 import { GitService } from '../services/git.js'
 import { logger } from '../utils/logger.js'
 import { getLanguageDisplayName } from '../utils/language-map.js'
+import { runReadmeUpdate } from './readme.js'
 import type { SubmitOptions } from '../types/index.js'
 
 export async function submitCommand(
@@ -15,6 +16,8 @@ export async function submitCommand(
   const git = new GitService(config.github.repoPath)
 
   await git.validateRepo()
+
+  let anyCommitted = false
 
   for (const problemNumber of problemNumbers) {
     logger.step(`Fetching problem #${problemNumber}...`)
@@ -42,11 +45,20 @@ export async function submitCommand(
     const commitResult = await git.addAndCommit(saveResult.filePath, problem, detail.lang.name)
     logger.success(`Committed: ${commitResult.commitMessage}`)
     logger.info(`Commit hash: ${commitResult.commitHash}`)
+    anyCommitted = true
 
     if (!options.noPush) {
       logger.step('Pushing to remote...')
       await git.push()
       logger.success('Pushed to remote repository')
     }
+  }
+
+  if (anyCommitted && !options.dryRun && !options.noReadme) {
+    await runReadmeUpdate(config.github.repoPath, {
+      dryRun: false,
+      noCommit: false,
+      noPush: options.noPush,
+    })
   }
 }

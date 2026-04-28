@@ -38,4 +38,5 @@ export interface SubmissionDetail {
 export interface SubmitOptions {
   dryRun: boolean
   noPush: boolean
+  noReadme?: boolean
 }

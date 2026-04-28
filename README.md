@@ -11,6 +11,7 @@ LeetCode의 최근 Accepted 제출 코드를 자동으로 GitHub 레포지토리
 - Git push conflict 발생 시 자동 pull --rebase 재시도
 - `--dry-run` 옵션으로 파일만 생성하고 커밋 생략 가능
 - 여러 문제를 한 번에 처리 가능
+- 풀이 레포의 `README.md`에 난이도별 원형 차트 / 토픽별 막대 차트 자동 갱신 (Mermaid)
 
 ## 사전 요구사항
 
@@ -85,6 +86,9 @@ leetcode-commit submit 1 --dry-run
 
 # 커밋은 하되 push는 생략
 leetcode-commit submit 1 --no-push
+
+# README 자동 갱신을 건너뛰기
+leetcode-commit submit 1 --no-readme
 ```
 
 **출력 예시:**
@@ -99,6 +103,34 @@ leetcode-commit submit 1 --no-push
 → Pushing to remote...
 ✓ Pushed to remote repository
 ```
+
+### 풀이 통계 README 갱신
+
+풀이 레포의 `README.md`에 난이도별 분포(파이 차트)와 토픽별 분포(막대 차트, Top 10)를 Mermaid로 추가합니다. 매번 `submit` / `migrate` 직후 자동 실행되며, 수동으로 다시 그릴 수도 있습니다.
+
+```bash
+# 통계만 확인하고 파일은 건드리지 않기
+leetcode-commit readme --dry-run
+
+# README 갱신 + 커밋 + 푸시 (기본)
+leetcode-commit readme
+
+# 커밋만 하고 push는 생략
+leetcode-commit readme --no-push
+
+# 파일만 갱신, 커밋/푸시 생략
+leetcode-commit readme --no-commit
+```
+
+기존 README의 사용자 작성 영역은 보존되며, 다음 마커 사이만 갱신됩니다:
+
+```markdown
+<!-- LEETCODE-STATS:START -->
+... 자동 생성 ...
+<!-- LEETCODE-STATS:END -->
+```
+
+마커가 없는 README는 끝에 자동 추가되고, README 자체가 없으면 기본 스캐폴드를 새로 생성합니다.
 
 ### 설정 관리
 

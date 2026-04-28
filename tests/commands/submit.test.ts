@@ -63,7 +63,7 @@ describe('submitCommand', () => {
   })
 
   it('runs full workflow: fetch, save, commit, push', async () => {
-    await submitCommand([1], { dryRun: false, noPush: false })
+    await submitCommand([1], { dryRun: false, noPush: false, noReadme: true })
     expect(mockFetchAcceptedCode).toHaveBeenCalledWith(1)
     expect(mockSaveSubmission).toHaveBeenCalled()
     expect(mockAddAndCommit).toHaveBeenCalled()
@@ -71,31 +71,31 @@ describe('submitCommand', () => {
   })
 
   it('skips commit/push when dry-run', async () => {
-    await submitCommand([1], { dryRun: true, noPush: false })
+    await submitCommand([1], { dryRun: true, noPush: false, noReadme: true })
     expect(mockSaveSubmission).toHaveBeenCalled()
     expect(mockAddAndCommit).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('commits but does not push when noPush is true', async () => {
-    await submitCommand([1], { dryRun: false, noPush: true })
+    await submitCommand([1], { dryRun: false, noPush: true, noReadme: true })
     expect(mockAddAndCommit).toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('skips commit when file is duplicate', async () => {
     mockSaveSubmission.mockReturnValue({ filePath: '/fake/repo/0001/solution.py', isNew: false, isDuplicate: true })
-    await submitCommand([1], { dryRun: false, noPush: false })
+    await submitCommand([1], { dryRun: false, noPush: false, noReadme: true })
     expect(mockAddAndCommit).not.toHaveBeenCalled()
   })
 
   it('processes multiple problems', async () => {
-    await submitCommand([1, 2, 3], { dryRun: false, noPush: false })
+    await submitCommand([1, 2, 3], { dryRun: false, noPush: false, noReadme: true })
     expect(mockFetchAcceptedCode).toHaveBeenCalledTimes(3)
   })
 
   it('propagates errors from LeetCode client', async () => {
     mockFetchAcceptedCode.mockRejectedValue(new Error('session expired'))
-    await expect(submitCommand([1], { dryRun: false, noPush: false })).rejects.toThrow('session expired')
+    await expect(submitCommand([1], { dryRun: false, noPush: false, noReadme: true })).rejects.toThrow('session expired')
   })
 })
