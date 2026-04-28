@@ -43,12 +43,21 @@ describe('generateStatsSection', () => {
     expect(out).toContain('"Hard"')
   })
 
-  it('emits a mermaid xychart for topics with bar values', () => {
+  it('renders topics as a markdown table with unicode bars', () => {
     const out = generateStatsSection(baseStats)
-    expect(out).toContain('xychart-beta')
-    expect(out).toContain('"Array"')
-    expect(out).toContain('"Hash Table"')
-    expect(out).toMatch(/bar \[\s*4/)
+    expect(out).toMatch(/\|\s*#\s*\|\s*토픽\s*\|/)
+    expect(out).toContain('Array')
+    expect(out).toContain('Hash Table')
+    expect(out).toContain('█')
+  })
+
+  it('orders topic rows by count desc and includes counts in the table', () => {
+    const out = generateStatsSection(baseStats)
+    const arrayIdx = out.indexOf('| Array |')
+    const hashIdx = out.indexOf('| Hash Table |')
+    expect(arrayIdx).toBeGreaterThan(-1)
+    expect(hashIdx).toBeGreaterThan(arrayIdx)
+    expect(out).toMatch(/\|\s*Array\s*\|\s*4\s*\|/)
   })
 
   it('limits topics to topN sorted by count desc', () => {
@@ -60,9 +69,9 @@ describe('generateStatsSection', () => {
       ),
     }
     const out = generateStatsSection(stats, 5)
-    expect(out).toContain('"Tag0"')
-    expect(out).toContain('"Tag4"')
-    expect(out).not.toContain('"Tag5"')
+    expect(out).toContain('| Tag0 |')
+    expect(out).toContain('| Tag4 |')
+    expect(out).not.toContain('| Tag5 |')
   })
 
   it('falls back to a friendly message when there are no topics', () => {
@@ -72,7 +81,7 @@ describe('generateStatsSection', () => {
       byTopic: {},
     }
     const out = generateStatsSection(stats)
-    expect(out).not.toContain('xychart-beta')
+    expect(out).not.toContain('█')
     expect(out).toMatch(/태그|tag/i)
   })
 })

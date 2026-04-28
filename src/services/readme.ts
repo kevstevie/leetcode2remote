@@ -24,25 +24,25 @@ function buildDifficultyChart(byDifficulty: RepoStats['byDifficulty']): string {
   ].join('\n')
 }
 
+const TOPIC_BAR_WIDTH = 24
+
 function buildTopicChart(byTopic: RepoStats['byTopic'], limit: number): string {
   const sorted = Object.entries(byTopic).sort(([, a], [, b]) => b - a).slice(0, limit)
   if (sorted.length === 0) {
     return '_아직 태그 정보가 없습니다._'
   }
 
-  const labels = sorted.map(([tag]) => `"${tag}"`).join(', ')
-  const values = sorted.map(([, count]) => count)
-  const max = Math.max(...values, 1)
+  const max = Math.max(...sorted.map(([, count]) => count), 1)
+  const lines = [
+    '| # | 토픽 | 풀이 수 | 분포 |',
+    '| ---: | --- | ---: | :--- |',
+  ]
+  sorted.forEach(([tag, count], idx) => {
+    const barLen = Math.max(1, Math.round((count / max) * TOPIC_BAR_WIDTH))
+    lines.push(`| ${idx + 1} | ${tag} | ${count} | ${'█'.repeat(barLen)} |`)
+  })
 
-  return [
-    '```mermaid',
-    'xychart-beta',
-    '    title "Top Topics"',
-    `    x-axis [${labels}]`,
-    `    y-axis "Count" 0 --> ${max + 1}`,
-    `    bar [${values.join(', ')}]`,
-    '```',
-  ].join('\n')
+  return lines.join('\n')
 }
 
 export function generateStatsSection(stats: RepoStats, topicLimit: number = DEFAULT_TOPIC_LIMIT): string {
