@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdirSync, rmSync, existsSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { simpleGit } from 'simple-git'
 import { migrateCommand } from '../../src/commands/migrate.js'
 
 const testRepo = join(tmpdir(), 'lc-migrate-test-' + Date.now())
@@ -18,6 +19,16 @@ function createFlatProblem(
   writeFileSync(join(dirPath, `solution${ext}`), header + 'def solve(): pass\n')
 }
 
+async function initRepoAndCommit(repoPath: string): Promise<void> {
+  const git = simpleGit(repoPath)
+  await git.init()
+  await git.addConfig('user.email', 'test@example.com')
+  await git.addConfig('user.name', 'Test')
+  await git.addConfig('commit.gpgsign', 'false')
+  await git.add('.')
+  await git.commit('initial')
+}
+
 describe('migrateCommand', () => {
   beforeEach(() => {
     mkdirSync(testRepo, { recursive: true })
@@ -29,21 +40,24 @@ describe('migrateCommand', () => {
 
   it('moves Easy problem to Easy/ subdirectory', async () => {
     createFlatProblem(testRepo, '0001-two-sum', 'Easy')
-    await migrateCommand(testRepo, { dryRun: false })
+    await initRepoAndCommit(testRepo)
+    await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(existsSync(join(testRepo, 'Easy', '0001-two-sum', 'solution.py'))).toBe(true)
     expect(existsSync(join(testRepo, '0001-two-sum'))).toBe(false)
   })
 
   it('moves Medium problem to Medium/ subdirectory', async () => {
     createFlatProblem(testRepo, '0015-3sum', 'Medium')
-    await migrateCommand(testRepo, { dryRun: false })
+    await initRepoAndCommit(testRepo)
+    await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(existsSync(join(testRepo, 'Medium', '0015-3sum', 'solution.py'))).toBe(true)
     expect(existsSync(join(testRepo, '0015-3sum'))).toBe(false)
   })
 
   it('moves Hard problem to Hard/ subdirectory', async () => {
     createFlatProblem(testRepo, '0042-trapping-rain-water', 'Hard')
-    await migrateCommand(testRepo, { dryRun: false })
+    await initRepoAndCommit(testRepo)
+    await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(existsSync(join(testRepo, 'Hard', '0042-trapping-rain-water', 'solution.py'))).toBe(true)
     expect(existsSync(join(testRepo, '0042-trapping-rain-water'))).toBe(false)
   })
@@ -59,21 +73,21 @@ describe('migrateCommand', () => {
   it('skips directories already in difficulty structure', async () => {
     mkdirSync(join(testRepo, 'Easy', '0001-two-sum'), { recursive: true })
     writeFileSync(join(testRepo, 'Easy', '0001-two-sum', 'solution.py'), '# Difficulty: Easy\n')
-    const result = await migrateCommand(testRepo, { dryRun: false })
+    const result = await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(result.skipped.length).toBe(0)
     expect(result.moved.length).toBe(0)
   })
 
   it('skips non-problem directories (no NNNN- prefix)', async () => {
     mkdirSync(join(testRepo, 'some-notes'), { recursive: true })
-    const result = await migrateCommand(testRepo, { dryRun: false })
+    const result = await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(result.skipped.length).toBe(0)
     expect(result.moved.length).toBe(0)
   })
 
   it('skips problem when no solution file found', async () => {
     mkdirSync(join(testRepo, '0001-two-sum'), { recursive: true })
-    const result = await migrateCommand(testRepo, { dryRun: false })
+    const result = await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(result.skipped.length).toBe(1)
     expect(existsSync(join(testRepo, '0001-two-sum'))).toBe(true)
   })
@@ -81,14 +95,15 @@ describe('migrateCommand', () => {
   it('skips problem when difficulty cannot be parsed from header', async () => {
     mkdirSync(join(testRepo, '0001-two-sum'), { recursive: true })
     writeFileSync(join(testRepo, '0001-two-sum', 'solution.py'), 'def solve(): pass\n')
-    const result = await migrateCommand(testRepo, { dryRun: false })
+    const result = await migrateCommand(testRepo, { dryRun: false, noPush: true })
     expect(result.skipped.length).toBe(1)
     expect(existsSync(join(testRepo, '0001-two-sum'))).toBe(true)
   })
 
   it('handles multi-language solution file (JS)', async () => {
     createFlatProblem(testRepo, '0001-two-sum', 'Easy', '.js')
-    await migrateCommand(testRepo, { dryRun: false })
+    await initRepoAndCommit(testRepo)
+    await migrateCommand(testRepo, { dryRun: false, noPush: true, noReadme: true })
     expect(existsSync(join(testRepo, 'Easy', '0001-two-sum', 'solution.js'))).toBe(true)
   })
 
@@ -96,9 +111,28 @@ describe('migrateCommand', () => {
     createFlatProblem(testRepo, '0001-two-sum', 'Easy')
     createFlatProblem(testRepo, '0015-3sum', 'Medium')
     mkdirSync(join(testRepo, '0042-no-solution'), { recursive: true })
+    await initRepoAndCommit(testRepo)
 
-    const result = await migrateCommand(testRepo, { dryRun: false })
+    const result = await migrateCommand(testRepo, { dryRun: false, noPush: true, noReadme: true })
     expect(result.moved.length).toBe(2)
     expect(result.skipped.length).toBe(1)
+  })
+
+  it('stages deletion of old tracked path AND addition of new path in one commit', async () => {
+    createFlatProblem(testRepo, '0136-single-number', 'Easy')
+    await initRepoAndCommit(testRepo)
+
+    await migrateCommand(testRepo, { dryRun: false, noPush: true, noReadme: true })
+
+    const git = simpleGit(testRepo)
+    const status = await git.status()
+    expect(status.files.length).toBe(0)
+
+    const tracked = await git.raw(['ls-files'])
+    expect(tracked).toContain('Easy/0136-single-number/solution.py')
+    expect(tracked).not.toMatch(/^0136-single-number\/solution\.py$/m)
+
+    const log = await git.log()
+    expect(log.latest?.message).toMatch(/migrate/i)
   })
 })

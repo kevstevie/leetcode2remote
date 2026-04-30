@@ -12,7 +12,7 @@ const SOLUTION_EXTENSIONS = ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.cs', 
 
 interface MigrateOptions {
   dryRun: boolean
-  noPush: boolean
+  noPush?: boolean
   noReadme?: boolean
 }
 
@@ -112,7 +112,7 @@ export async function migrateCommand(repoPath: string, options: MigrateOptions):
     await runReadmeUpdate(repoPath, {
       dryRun: false,
       noCommit: false,
-      noPush: options.noPush,
+      noPush: options.noPush ?? false,
     })
   }
 

@@ -55,10 +55,11 @@ export class GitService {
   async addManyAndCommit(paths: string[], message: string): Promise<CommitResult> {
     await this.validateRepo()
 
-    await this.git.add(paths)
+    await this.git.raw(['add', '-A', ...paths])
 
     const status = await this.git.status()
-    if (status.staged.length === 0) {
+    const hasStagedChanges = status.files.some((f) => f.index !== ' ' && f.index !== '?')
+    if (!hasStagedChanges) {
       throw new Error('No changes to commit after migration.')
     }
 
