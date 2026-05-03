@@ -5,8 +5,19 @@ import { configGetCommand, configSetCommand, configListCommand } from './command
 import { initCommand } from './commands/init.js'
 import { migrateCommand } from './commands/migrate.js'
 import { readmeCommand } from './commands/readme.js'
+import { cookieCommand, cookieListCommand } from './commands/cookie.js'
 import { loadConfig } from './config/loader.js'
 import { logger } from './utils/logger.js'
+import type { BrowserId } from './services/cookie/types.js'
+
+const VALID_BROWSERS: BrowserId[] = ['chrome', 'firefox', 'edge', 'brave', 'arc']
+
+function parseBrowser(input: string | undefined): BrowserId | undefined {
+  if (!input) return undefined
+  if ((VALID_BROWSERS as string[]).includes(input)) return input as BrowserId
+  logger.error(`Invalid browser: ${input}. Choose one of: ${VALID_BROWSERS.join(', ')}`)
+  process.exit(1)
+}
 
 const program = new Command()
 
@@ -64,6 +75,27 @@ program
     })
   })
 
+const cookieCmd = program
+  .command('cookie')
+  .description('Auto-extract LEETCODE_SESSION cookie from your local browser')
+  .option('--browser <name>', 'Browser to extract from (chrome|firefox|edge|brave|arc)')
+  .option('--list', 'List detected browsers and cookie database paths')
+  .action(async (options: { browser?: string; list?: boolean }) => {
+    if (options.list) {
+      cookieListCommand()
+      return
+    }
+    await cookieCommand({ browser: parseBrowser(options.browser) })
+  })
+
+cookieCmd
+  .command('refresh')
+  .description('Force-refresh the session cookie now (same as cookie, but explicit)')
+  .option('--browser <name>', 'Browser to extract from (chrome|firefox|edge|brave|arc)')
+  .action(async (options: { browser?: string }) => {
+    await cookieCommand({ browser: parseBrowser(options.browser) })
+  })
+
 const configCmd = program
   .command('config')
   .description('Manage configuration settings')
@@ -86,8 +118,9 @@ configCmd
 program
   .command('init')
   .description('Interactive setup: create config file with credentials')
-  .action(async () => {
-    await initCommand()
+  .option('--auto-cookie', 'Auto-extract session cookie from browser instead of prompting')
+  .action(async (options: { autoCookie?: boolean }) => {
+    await initCommand({ autoCookie: options.autoCookie })
   })
 
 program

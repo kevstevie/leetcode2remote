@@ -2,12 +2,18 @@ import { createInterface } from 'readline'
 import { existsSync } from 'fs'
 import { saveConfig, configExists, getConfigPath } from '../config/loader.js'
 import { logger } from '../utils/logger.js'
+import { extractLeetCodeSession, isPlatformSupported } from '../services/cookie/index.js'
+import { formatExtractionFailure } from './cookie.js'
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve))
 }
 
-export async function initCommand(): Promise<void> {
+export interface InitOptions {
+  autoCookie?: boolean
+}
+
+export async function initCommand(options: InitOptions = {}): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
 
   try {
@@ -23,15 +29,33 @@ export async function initCommand(): Promise<void> {
     }
 
     console.log('\nWelcome to leetcode-commit setup!\n')
-    console.log('To get your LeetCode session cookie:')
-    console.log('  1. Log in to leetcode.com in your browser')
-    console.log('  2. Open DevTools → Application → Cookies → https://leetcode.com')
-    console.log("  3. Copy the value of the 'LEETCODE_SESSION' cookie\n")
 
-    const sessionCookie = await prompt(rl, 'LeetCode session cookie (LEETCODE_SESSION value): ')
-    if (!sessionCookie.trim()) {
-      logger.error('Session cookie cannot be empty')
-      process.exit(1)
+    let sessionCookie = ''
+    if (options.autoCookie && isPlatformSupported()) {
+      logger.step('Auto-extracting LEETCODE_SESSION from your browser...')
+      const result = await extractLeetCodeSession({ interactive: true })
+      if (result.ok) {
+        sessionCookie = result.value
+        logger.success(`Extracted from ${result.browser} [redacted]`)
+      } else {
+        logger.warn(formatExtractionFailure(result))
+      }
+    }
+
+    if (!sessionCookie) {
+      console.log('To get your LeetCode session cookie:')
+      console.log('  Option A (auto): close this, run `leetcode-commit init --auto-cookie`')
+      console.log('  Option B (manual):')
+      console.log('    1. Log in to leetcode.com in your browser')
+      console.log('    2. Open DevTools → Application → Cookies → https://leetcode.com')
+      console.log("    3. Copy the value of the 'LEETCODE_SESSION' cookie\n")
+
+      const value = await prompt(rl, 'LeetCode session cookie (LEETCODE_SESSION value): ')
+      sessionCookie = value.trim()
+      if (!sessionCookie) {
+        logger.error('Session cookie cannot be empty')
+        process.exit(1)
+      }
     }
 
     const csrfToken = await prompt(rl, 'CSRF token (optional, press Enter to skip): ')
@@ -57,7 +81,7 @@ export async function initCommand(): Promise<void> {
 
     saveConfig({
       leetcode: {
-        sessionCookie: sessionCookie.trim(),
+        sessionCookie,
         ...(csrfToken.trim() ? { csrfToken: csrfToken.trim() } : {}),
       },
       github: {
