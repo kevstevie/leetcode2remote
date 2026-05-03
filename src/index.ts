@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { submitCommand } from './commands/submit.js'
+import { latestCommand } from './commands/latest.js'
 import { configGetCommand, configSetCommand, configListCommand } from './commands/config.js'
 import { initCommand } from './commands/init.js'
 import { migrateCommand } from './commands/migrate.js'
@@ -15,16 +16,27 @@ program
   .version('1.0.0')
 
 program
-  .command('submit <problems...>')
+  .command('submit [problems...]')
   .description('Fetch accepted submission(s) and commit to GitHub')
   .option('--dry-run', 'Save files only, skip git commit and push', false)
   .option('--no-push', 'Commit but do not push to remote')
   .option('--no-readme', 'Skip auto-updating README.md after submit')
   .action(
     async (
-      problems: string[],
+      problems: string[] | undefined,
       options: { dryRun: boolean; push: boolean; readme: boolean }
     ) => {
+      const submitOptions = {
+        dryRun: options.dryRun,
+        noPush: !options.push,
+        noReadme: !options.readme,
+      }
+
+      if (!problems || problems.length === 0) {
+        await latestCommand(submitOptions)
+        return
+      }
+
       const problemNumbers = problems.map((p) => {
         const n = parseInt(p, 10)
         if (isNaN(n) || n <= 0) {
@@ -34,13 +46,23 @@ program
         return n
       })
 
-      await submitCommand(problemNumbers, {
-        dryRun: options.dryRun,
-        noPush: !options.push,
-        noReadme: !options.readme,
-      })
+      await submitCommand(problemNumbers, submitOptions)
     }
   )
+
+program
+  .command('latest')
+  .description('Fetch your most recently accepted submission across all problems and commit it')
+  .option('--dry-run', 'Save files only, skip git commit and push', false)
+  .option('--no-push', 'Commit but do not push to remote')
+  .option('--no-readme', 'Skip auto-updating README.md after submit')
+  .action(async (options: { dryRun: boolean; push: boolean; readme: boolean }) => {
+    await latestCommand({
+      dryRun: options.dryRun,
+      noPush: !options.push,
+      noReadme: !options.readme,
+    })
+  })
 
 const configCmd = program
   .command('config')

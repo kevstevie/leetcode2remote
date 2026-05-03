@@ -35,6 +35,13 @@ export interface SubmissionDetail {
   }
 }
 
+export interface RecentAcSubmission {
+  id: string
+  title: string
+  titleSlug: string
+  timestamp: string
+}
+
 export interface SubmitOptions {
   dryRun: boolean
   noPush: boolean

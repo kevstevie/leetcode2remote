@@ -1,5 +1,5 @@
 import { LEETCODE_BASE_URL, LEETCODE_GRAPHQL_URL, ACCEPTED_STATUS } from '../config/constants.js'
-import type { ProblemInfo, Submission, SubmissionDetail } from '../types/index.js'
+import type { ProblemInfo, RecentAcSubmission, Submission, SubmissionDetail } from '../types/index.js'
 
 const PROBLEM_INFO_QUERY = `
   query problemByNumber($filters: QuestionListFilterInput) {
@@ -35,6 +35,40 @@ const SUBMISSION_LIST_QUERY = `
         lang
         statusDisplay
         timestamp
+      }
+    }
+  }
+`
+
+const GLOBAL_DATA_QUERY = `
+  query globalData {
+    userStatus {
+      isSignedIn
+      username
+    }
+  }
+`
+
+const RECENT_AC_SUBMISSIONS_QUERY = `
+  query recentAcSubmissions($username: String!, $limit: Int!) {
+    recentAcSubmissionList(username: $username, limit: $limit) {
+      id
+      title
+      titleSlug
+      timestamp
+    }
+  }
+`
+
+const QUESTION_BY_SLUG_QUERY = `
+  query questionBySlug($titleSlug: String!) {
+    question(titleSlug: $titleSlug) {
+      questionFrontendId
+      titleSlug
+      title
+      difficulty
+      topicTags {
+        name
       }
     }
   }
@@ -184,6 +218,81 @@ export class LeetCodeClient {
     }
 
     return data.submissionDetails
+  }
+
+  async getUsername(): Promise<string> {
+    const data = await this.graphql<{ userStatus: { isSignedIn: boolean; username: string } | null }>(
+      GLOBAL_DATA_QUERY,
+      {}
+    )
+
+    const status = data.userStatus
+    if (!status?.isSignedIn || !status.username) {
+      throw new Error(
+        'LeetCode session expired or invalid.\n' +
+          "Please update your session cookie:\n" +
+          "  1. Log in to leetcode.com in your browser\n" +
+          "  2. Open DevTools → Application → Cookies\n" +
+          "  3. Copy the 'LEETCODE_SESSION' cookie value\n" +
+          "  4. Run: leetcode-commit config set leetcode.sessionCookie <value>"
+      )
+    }
+
+    return status.username
+  }
+
+  async getRecentAcceptedSubmissions(limit = 1): Promise<RecentAcSubmission[]> {
+    const username = await this.getUsername()
+
+    const data = await this.graphql<{
+      recentAcSubmissionList: RecentAcSubmission[] | null
+    }>(RECENT_AC_SUBMISSIONS_QUERY, { username, limit })
+
+    const list = data.recentAcSubmissionList ?? []
+    if (list.length === 0) {
+      throw new Error(`No recent accepted submissions found for user '${username}'.`)
+    }
+
+    return list
+  }
+
+  async getProblemInfoBySlug(titleSlug: string): Promise<ProblemInfo> {
+    const data = await this.graphql<{
+      question: {
+        questionFrontendId: string
+        titleSlug: string
+        title: string
+        difficulty: string
+        topicTags?: Array<{ name: string }>
+      } | null
+    }>(QUESTION_BY_SLUG_QUERY, { titleSlug })
+
+    if (!data.question) {
+      throw new Error(`Problem with slug '${titleSlug}' not found.`)
+    }
+
+    const q = data.question
+    return {
+      frontendQuestionId: q.questionFrontendId,
+      titleSlug: q.titleSlug,
+      title: q.title,
+      difficulty: q.difficulty as ProblemInfo['difficulty'],
+      topicTags: (q.topicTags ?? []).map((t) => t.name),
+    }
+  }
+
+  async fetchLatestAcceptedAcrossAll(): Promise<{
+    problem: ProblemInfo
+    submission: Submission
+    detail: SubmissionDetail
+  }> {
+    const recent = await this.getRecentAcceptedSubmissions(1)
+    const titleSlug = recent[0].titleSlug
+    const problem = await this.getProblemInfoBySlug(titleSlug)
+    const submission = await this.getLatestAcceptedSubmission(titleSlug)
+    const detail = await this.getSubmissionDetail(submission.id)
+
+    return { problem, submission, detail }
   }
 
   async fetchAcceptedCode(problemNumber: number): Promise<{
