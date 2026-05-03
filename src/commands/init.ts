@@ -60,6 +60,12 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
     const csrfToken = await prompt(rl, 'CSRF token (optional, press Enter to skip): ')
 
+    const enableAutoRefresh = await prompt(
+      rl,
+      'Enable auto-refresh of session cookie when it expires? (Y/n) '
+    )
+    const autoRefresh = enableAutoRefresh.trim().toLowerCase() !== 'n'
+
     console.log('\nGitHub repository path:')
     console.log('  This should be a local path to your git-cloned repository')
     console.log('  Example: /Users/yourname/leetcode-solutions\n')
@@ -83,6 +89,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       leetcode: {
         sessionCookie,
         ...(csrfToken.trim() ? { csrfToken: csrfToken.trim() } : {}),
+        autoRefresh,
       },
       github: {
         repoPath: repoPath.trim(),

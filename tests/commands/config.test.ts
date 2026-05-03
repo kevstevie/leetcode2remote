@@ -57,6 +57,43 @@ describe('config commands', () => {
       configSetCommand('leetcode.sessionCookie', 'secret123')
       expect(logger.success).toHaveBeenCalledWith(expect.stringContaining('[redacted]'))
     })
+
+    it('coerces autoRefresh to boolean', async () => {
+      const { configSetCommand } = await import('../../src/commands/config.js')
+      configSetCommand('leetcode.autoRefresh', 'false')
+      expect(mockSaveConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          leetcode: expect.objectContaining({ autoRefresh: false }),
+        })
+      )
+    })
+
+    it('rejects invalid boolean for autoRefresh', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('exit')
+      })
+      const { configSetCommand } = await import('../../src/commands/config.js')
+      expect(() => configSetCommand('leetcode.autoRefresh', 'yes')).toThrow('exit')
+      exitSpy.mockRestore()
+    })
+
+    it('rejects invalid browser', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('exit')
+      })
+      const { configSetCommand } = await import('../../src/commands/config.js')
+      expect(() => configSetCommand('leetcode.preferredBrowser', 'opera')).toThrow('exit')
+      exitSpy.mockRestore()
+    })
+
+    it('rejects unknown config key', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('exit')
+      })
+      const { configSetCommand } = await import('../../src/commands/config.js')
+      expect(() => configSetCommand('leetcode.bogus', 'x')).toThrow('exit')
+      exitSpy.mockRestore()
+    })
   })
 
   describe('configListCommand', () => {

@@ -93,19 +93,42 @@ const SUBMISSION_DETAIL_QUERY = `
   }
 `
 
-export class LeetCodeClient {
-  private readonly sessionCookie: string
-  private readonly csrfToken: string
+export type AuthFailureAttempt = 'auto' | 'interactive'
+export type OnAuthFailure = (attempt: AuthFailureAttempt) => Promise<string | null>
 
-  constructor(sessionCookie: string, csrfToken = '') {
-    this.sessionCookie = sessionCookie
+export const SESSION_EXPIRED_MESSAGE =
+  'LeetCode session expired or invalid.\n' +
+  "Please update your session cookie:\n" +
+  '  1. Log in to leetcode.com in your browser\n' +
+  '  2. Run: leetcode-commit cookie    (auto-extract from browser)\n' +
+  '  Or manually:\n' +
+  '  3. Open DevTools → Application → Cookies\n' +
+  "  4. Copy the 'LEETCODE_SESSION' cookie value\n" +
+  '  5. Run: leetcode-commit config set leetcode.sessionCookie <value>'
+
+export interface LeetCodeClientOptions {
+  onAuthFailure?: OnAuthFailure
+}
+
+export class LeetCodeClient {
+  private currentCookie: string
+  private readonly csrfToken: string
+  private readonly onAuthFailure?: OnAuthFailure
+
+  constructor(sessionCookie: string, csrfToken = '', options: LeetCodeClientOptions = {}) {
+    this.currentCookie = sessionCookie
     this.csrfToken = csrfToken
+    this.onAuthFailure = options.onAuthFailure
   }
 
-  private async graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-    const cookie = this.sessionCookie.startsWith('LEETCODE_SESSION=')
-      ? this.sessionCookie
-      : `LEETCODE_SESSION=${this.sessionCookie}`
+  private async graphql<T>(
+    query: string,
+    variables: Record<string, unknown>,
+    retryStage: 0 | 1 | 2 = 0
+  ): Promise<T> {
+    const cookie = this.currentCookie.startsWith('LEETCODE_SESSION=')
+      ? this.currentCookie
+      : `LEETCODE_SESSION=${this.currentCookie}`
 
     const response = await fetch(LEETCODE_GRAPHQL_URL, {
       method: 'POST',
@@ -120,14 +143,15 @@ export class LeetCodeClient {
     })
 
     if (response.status === 401 || response.status === 403) {
-      throw new Error(
-        'LeetCode session expired or invalid.\n' +
-          "Please update your session cookie:\n" +
-          "  1. Log in to leetcode.com in your browser\n" +
-          "  2. Open DevTools → Application → Cookies\n" +
-          "  3. Copy the 'LEETCODE_SESSION' cookie value\n" +
-          "  4. Run: leetcode-commit config set leetcode.sessionCookie <value>"
-      )
+      if (this.onAuthFailure && retryStage < 2) {
+        const stage: AuthFailureAttempt = retryStage === 0 ? 'auto' : 'interactive'
+        const fresh = await this.onAuthFailure(stage)
+        if (fresh) {
+          this.currentCookie = fresh
+          return this.graphql<T>(query, variables, (retryStage + 1) as 1 | 2)
+        }
+      }
+      throw new Error(SESSION_EXPIRED_MESSAGE)
     }
 
     if (!response.ok) {
@@ -228,14 +252,7 @@ export class LeetCodeClient {
 
     const status = data.userStatus
     if (!status?.isSignedIn || !status.username) {
-      throw new Error(
-        'LeetCode session expired or invalid.\n' +
-          "Please update your session cookie:\n" +
-          "  1. Log in to leetcode.com in your browser\n" +
-          "  2. Open DevTools → Application → Cookies\n" +
-          "  3. Copy the 'LEETCODE_SESSION' cookie value\n" +
-          "  4. Run: leetcode-commit config set leetcode.sessionCookie <value>"
-      )
+      throw new Error(SESSION_EXPIRED_MESSAGE)
     }
 
     return status.username

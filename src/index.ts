@@ -26,40 +26,54 @@ program
   .description('Fetch your latest accepted LeetCode submission and commit it to GitHub')
   .version('1.0.0')
 
+interface SubmitCliOptions {
+  dryRun: boolean
+  push: boolean
+  readme: boolean
+  autoRefresh: boolean
+  interactiveRefresh: boolean
+  openBrowser: boolean
+}
+
+function toSubmitOptions(options: SubmitCliOptions) {
+  return {
+    dryRun: options.dryRun,
+    noPush: !options.push,
+    noReadme: !options.readme,
+    noAutoRefresh: !options.autoRefresh,
+    noInteractiveRefresh: !options.interactiveRefresh,
+    noOpenBrowser: !options.openBrowser,
+  }
+}
+
 program
   .command('submit [problems...]')
   .description('Fetch accepted submission(s) and commit to GitHub')
   .option('--dry-run', 'Save files only, skip git commit and push', false)
   .option('--no-push', 'Commit but do not push to remote')
   .option('--no-readme', 'Skip auto-updating README.md after submit')
-  .action(
-    async (
-      problems: string[] | undefined,
-      options: { dryRun: boolean; push: boolean; readme: boolean }
-    ) => {
-      const submitOptions = {
-        dryRun: options.dryRun,
-        noPush: !options.push,
-        noReadme: !options.readme,
-      }
+  .option('--no-auto-refresh', 'Disable automatic cookie refresh on auth failure')
+  .option('--no-interactive-refresh', 'Disable interactive prompt for browser login on auth failure')
+  .option('--no-open-browser', 'Do not auto-open the LeetCode login page')
+  .action(async (problems: string[] | undefined, options: SubmitCliOptions) => {
+    const submitOptions = toSubmitOptions(options)
 
-      if (!problems || problems.length === 0) {
-        await latestCommand(submitOptions)
-        return
-      }
-
-      const problemNumbers = problems.map((p) => {
-        const n = parseInt(p, 10)
-        if (isNaN(n) || n <= 0) {
-          logger.error(`Invalid problem number: ${p}`)
-          process.exit(1)
-        }
-        return n
-      })
-
-      await submitCommand(problemNumbers, submitOptions)
+    if (!problems || problems.length === 0) {
+      await latestCommand(submitOptions)
+      return
     }
-  )
+
+    const problemNumbers = problems.map((p) => {
+      const n = parseInt(p, 10)
+      if (isNaN(n) || n <= 0) {
+        logger.error(`Invalid problem number: ${p}`)
+        process.exit(1)
+      }
+      return n
+    })
+
+    await submitCommand(problemNumbers, submitOptions)
+  })
 
 program
   .command('latest')
@@ -67,12 +81,11 @@ program
   .option('--dry-run', 'Save files only, skip git commit and push', false)
   .option('--no-push', 'Commit but do not push to remote')
   .option('--no-readme', 'Skip auto-updating README.md after submit')
-  .action(async (options: { dryRun: boolean; push: boolean; readme: boolean }) => {
-    await latestCommand({
-      dryRun: options.dryRun,
-      noPush: !options.push,
-      noReadme: !options.readme,
-    })
+  .option('--no-auto-refresh', 'Disable automatic cookie refresh on auth failure')
+  .option('--no-interactive-refresh', 'Disable interactive prompt for browser login on auth failure')
+  .option('--no-open-browser', 'Do not auto-open the LeetCode login page')
+  .action(async (options: SubmitCliOptions) => {
+    await latestCommand(toSubmitOptions(options))
   })
 
 const cookieCmd = program

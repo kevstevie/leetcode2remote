@@ -4,13 +4,19 @@ import { GitService } from '../services/git.js'
 import { logger } from '../utils/logger.js'
 import { processSubmission } from './submit.js'
 import { runReadmeUpdate } from './readme.js'
+import { resolveAuthHandler } from './auth-options.js'
 import type { SubmitOptions } from '../types/index.js'
 
 export async function latestCommand(options: SubmitOptions): Promise<void> {
   logger.info('No problem number given — fetching your latest accepted submission.')
 
   const config = loadConfig()
-  const client = new LeetCodeClient(config.leetcode.sessionCookie, config.leetcode.csrfToken)
+  const onAuthFailure = resolveAuthHandler(config, options)
+  const client = new LeetCodeClient(
+    config.leetcode.sessionCookie,
+    config.leetcode.csrfToken,
+    { onAuthFailure }
+  )
   const git = new GitService(config.github.repoPath)
 
   await git.validateRepo()

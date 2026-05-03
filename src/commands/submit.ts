@@ -5,6 +5,7 @@ import { GitService } from '../services/git.js'
 import { logger } from '../utils/logger.js'
 import { getLanguageDisplayName } from '../utils/language-map.js'
 import { runReadmeUpdate } from './readme.js'
+import { resolveAuthHandler } from './auth-options.js'
 import type { ProblemInfo, SubmissionDetail, SubmitOptions } from '../types/index.js'
 
 export async function processSubmission(
@@ -51,7 +52,12 @@ export async function submitCommand(
   options: SubmitOptions
 ): Promise<void> {
   const config = loadConfig()
-  const client = new LeetCodeClient(config.leetcode.sessionCookie, config.leetcode.csrfToken)
+  const onAuthFailure = resolveAuthHandler(config, options)
+  const client = new LeetCodeClient(
+    config.leetcode.sessionCookie,
+    config.leetcode.csrfToken,
+    { onAuthFailure }
+  )
   const git = new GitService(config.github.repoPath)
 
   await git.validateRepo()

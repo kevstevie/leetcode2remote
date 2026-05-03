@@ -1,16 +1,56 @@
 import { loadConfig, saveConfig, getConfigPath } from '../config/loader.js'
 import { logger } from '../utils/logger.js'
-import type { Config } from '../config/schema.js'
+import { browserIdSchema, type Config } from '../config/schema.js'
 
-type ConfigKey = 'leetcode.sessionCookie' | 'leetcode.csrfToken' | 'github.repoPath'
+type ConfigKey =
+  | 'leetcode.sessionCookie'
+  | 'leetcode.csrfToken'
+  | 'leetcode.autoRefresh'
+  | 'leetcode.interactiveRefresh'
+  | 'leetcode.preferredBrowser'
+  | 'github.repoPath'
 
-function getNestedValue(obj: Config, key: ConfigKey): string | undefined {
+const VALID_KEYS: readonly ConfigKey[] = [
+  'leetcode.sessionCookie',
+  'leetcode.csrfToken',
+  'leetcode.autoRefresh',
+  'leetcode.interactiveRefresh',
+  'leetcode.preferredBrowser',
+  'github.repoPath',
+] as const
+
+function assertKey(key: string): asserts key is ConfigKey {
+  if (!(VALID_KEYS as readonly string[]).includes(key)) {
+    logger.error(`Unknown config key: ${key}\nValid keys: ${VALID_KEYS.join(', ')}`)
+    process.exit(1)
+  }
+}
+
+function getNestedValue(obj: Config, key: ConfigKey): string | boolean | undefined {
   const [section, field] = key.split('.') as [keyof Config, string]
-  const sectionObj = obj[section] as Record<string, string | undefined>
+  const sectionObj = obj[section] as Record<string, string | boolean | undefined>
   return sectionObj[field]
 }
 
-function setNestedValue(obj: Config, key: ConfigKey, value: string): Config {
+function coerceValue(key: ConfigKey, value: string): string | boolean {
+  if (key === 'leetcode.autoRefresh' || key === 'leetcode.interactiveRefresh') {
+    if (value === 'true') return true
+    if (value === 'false') return false
+    logger.error(`${key} must be 'true' or 'false'`)
+    process.exit(1)
+  }
+  if (key === 'leetcode.preferredBrowser') {
+    const parsed = browserIdSchema.safeParse(value)
+    if (!parsed.success) {
+      logger.error(`${key} must be one of: chrome, firefox, edge, brave, arc`)
+      process.exit(1)
+    }
+    return parsed.data
+  }
+  return value
+}
+
+function setNestedValue(obj: Config, key: ConfigKey, value: string | boolean): Config {
   const [section, field] = key.split('.') as [keyof Config, string]
   return {
     ...obj,
@@ -21,21 +61,25 @@ function setNestedValue(obj: Config, key: ConfigKey, value: string): Config {
   }
 }
 
-export function configGetCommand(key: ConfigKey): void {
+export function configGetCommand(key: string): void {
+  assertKey(key)
   const config = loadConfig()
   const value = getNestedValue(config, key)
   if (value === undefined) {
     logger.error(`Key '${key}' not found`)
     process.exit(1)
   }
-  console.log(value)
+  console.log(String(value))
 }
 
-export function configSetCommand(key: ConfigKey, value: string): void {
+export function configSetCommand(key: string, rawValue: string): void {
+  assertKey(key)
   const config = loadConfig()
+  const value = coerceValue(key, rawValue)
   const updated = setNestedValue(config, key, value)
   saveConfig(updated)
-  logger.success(`Set ${key} = ${key.includes('Cookie') ? '[redacted]' : value}`)
+  const display = key.includes('Cookie') ? '[redacted]' : String(value)
+  logger.success(`Set ${key} = ${display}`)
 }
 
 export function configListCommand(): void {

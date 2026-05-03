@@ -1,13 +1,3 @@
-export interface Config {
-  leetcode: {
-    sessionCookie: string
-    csrfToken?: string
-  }
-  github: {
-    repoPath: string
-  }
-}
-
 export interface ProblemInfo {
   frontendQuestionId: string
   titleSlug: string
@@ -46,4 +36,7 @@ export interface SubmitOptions {
   dryRun: boolean
   noPush: boolean
   noReadme?: boolean
+  noAutoRefresh?: boolean
+  noInteractiveRefresh?: boolean
+  noOpenBrowser?: boolean
 }
