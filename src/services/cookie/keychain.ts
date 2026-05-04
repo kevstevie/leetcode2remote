@@ -9,8 +9,6 @@ export const realKeychainReader: KeychainReader = async (serviceName) => {
   const { stdout } = await execFileAsync('security', [
     'find-generic-password',
     '-w',
-    '-a',
-    serviceName,
     '-s',
     serviceName,
   ])
