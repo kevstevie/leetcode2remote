@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createCipheriv, pbkdf2Sync } from 'crypto'
+import { createCipheriv, pbkdf2Sync, randomBytes } from 'crypto'
 import { decryptChromiumValue, extractChromiumCookie } from '../../../src/services/cookie/chrome.js'
 import type { CookieDbReader, RawCookieRow } from '../../../src/services/cookie/sqlite.js'
 
@@ -11,6 +11,15 @@ function encryptV10(plaintext: string, password = PASSWORD): Buffer {
   const key = pbkdf2Sync(password, SALT, 1003, 16, 'sha1')
   const cipher = createCipheriv('aes-128-cbc', key, IV)
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  return Buffer.concat([Buffer.from('v10', 'utf8'), ciphertext])
+}
+
+function encryptV10WithHostHash(plaintext: string, password = PASSWORD): Buffer {
+  const key = pbkdf2Sync(password, SALT, 1003, 16, 'sha1')
+  const cipher = createCipheriv('aes-128-cbc', key, IV)
+  const hostHash = randomBytes(32)
+  const body = Buffer.concat([hostHash, Buffer.from(plaintext, 'utf8')])
+  const ciphertext = Buffer.concat([cipher.update(body), cipher.final()])
   return Buffer.concat([Buffer.from('v10', 'utf8'), ciphertext])
 }
 
@@ -45,6 +54,16 @@ describe('decryptChromiumValue', () => {
 
   it('throws on too-short input', () => {
     expect(() => decryptChromiumValue(Buffer.from([1, 2]), PASSWORD)).toThrow(/too short/)
+  })
+
+  it('strips 32-byte SHA256(host) prefix added by Chromium 124+', () => {
+    const enc = encryptV10WithHostHash(SESSION_VALUE)
+    expect(decryptChromiumValue(enc, PASSWORD)).toBe(SESSION_VALUE)
+  })
+
+  it('does not strip when the leading bytes are printable ASCII (legacy Chrome)', () => {
+    const enc = encryptV10(SESSION_VALUE)
+    expect(decryptChromiumValue(enc, PASSWORD)).toBe(SESSION_VALUE)
   })
 })
 

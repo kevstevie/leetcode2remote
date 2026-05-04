@@ -10,6 +10,7 @@ const KEY_LENGTH = 16
 const IV = Buffer.alloc(16, 0x20)
 const COOKIE_HOST = 'leetcode.com'
 const COOKIE_NAME = 'LEETCODE_SESSION'
+const HOST_HASH_LENGTH = 32
 
 export interface ChromiumExtractDeps {
   readCookie?: CookieDbReader
@@ -97,7 +98,18 @@ export function decryptChromiumValue(encrypted: Buffer, password: string): strin
   const decipher = createDecipheriv('aes-128-cbc', key, IV)
   decipher.setAutoPadding(false)
   const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()])
-  return stripPkcs7(decrypted).toString('utf8')
+  return stripHostHashPrefix(stripPkcs7(decrypted)).toString('utf8')
+}
+
+function stripHostHashPrefix(buf: Buffer): Buffer {
+  if (buf.length <= HOST_HASH_LENGTH) return buf
+  for (let i = 0; i < HOST_HASH_LENGTH; i++) {
+    const byte = buf[i]
+    if (byte < 0x20 || byte > 0x7e) {
+      return buf.subarray(HOST_HASH_LENGTH)
+    }
+  }
+  return buf
 }
 
 function stripPkcs7(buf: Buffer): Buffer {
@@ -126,6 +138,9 @@ function chromiumExpiryToDate(expiresUtc: number): Date | undefined {
 
 function isPlausibleSession(value: string): boolean {
   if (value.length < 20 || value.length > 4000) return false
-  if (/[\r\n]/.test(value)) return false
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code > 0x7e) return false
+  }
   return true
 }
