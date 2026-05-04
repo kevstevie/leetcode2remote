@@ -72,8 +72,10 @@ export function formatExtractionFailure(result: ExtractionResult & { ok: false }
       return `LEETCODE_SESSION cookie not found${browser}. Log in to leetcode.com in that browser, then retry.`
     case 'browser_running':
       return `Browser is running and holds the cookie database lock${browser}. Close the browser or use a different one with --browser.`
-    case 'keychain_denied':
-      return `macOS Keychain access was denied${browser}. Allow access when prompted, or click "Always Allow".`
+    case 'keychain_denied': {
+      const detail = result.detail ? ` Detail: ${result.detail}` : ''
+      return `macOS Keychain access was denied${browser}. Allow access when prompted, or click "Always Allow".${detail}`
+    }
     case 'decrypt_failed':
       return `Failed to decrypt cookie${browser}. The encryption format may have changed.`
     case 'native_module_missing':
