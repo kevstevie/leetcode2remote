@@ -57,6 +57,24 @@ export function cookieListCommand(): void {
   }
 }
 
+function mapKeychainDetail(detail: string | undefined): string {
+  if (!detail) return ''
+  const lower = detail.toLowerCase()
+  if (lower.includes('user canceled') || lower.includes('user cancelled')) {
+    return 'Looks like the prompt was canceled — retry and click "Always Allow".'
+  }
+  if (lower.includes('user interaction is not allowed') || lower.includes('errsecinteractionnotallowed')) {
+    return 'Keychain interaction is currently disabled (e.g. screen locked).'
+  }
+  if (lower.includes('could not be found') || lower.includes('errsecitemnotfound')) {
+    return 'Keychain entry not found — the browser may not be installed or has not stored a key yet.'
+  }
+  if (lower.includes('authentication failed') || lower.includes('errsecauthfailed')) {
+    return 'Keychain authentication failed.'
+  }
+  return ''
+}
+
 export function formatExtractionFailure(result: ExtractionResult & { ok: false }): string {
   const browser = result.browser ? ` (${result.browser})` : ''
   switch (result.reason) {
@@ -73,8 +91,9 @@ export function formatExtractionFailure(result: ExtractionResult & { ok: false }
     case 'browser_running':
       return `Browser is running and holds the cookie database lock${browser}. Close the browser or use a different one with --browser.`
     case 'keychain_denied': {
-      const detail = result.detail ? ` Detail: ${result.detail}` : ''
-      return `macOS Keychain access was denied${browser}. Allow access when prompted, or click "Always Allow".${detail}`
+      const hint = mapKeychainDetail(result.detail)
+      const suffix = hint ? ` ${hint}` : ''
+      return `macOS Keychain access was denied${browser}. Allow access when prompted, or click "Always Allow".${suffix}`
     }
     case 'decrypt_failed':
       return `Failed to decrypt cookie${browser}. The encryption format may have changed.`
