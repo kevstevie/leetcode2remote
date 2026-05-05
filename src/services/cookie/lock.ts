@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, writeFileSync, statSync } from 'fs'
+import { homedir } from 'os'
 import { join, dirname } from 'path'
 
 export interface LockHandle {
@@ -77,5 +78,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 export function getRefreshLockPath(): string {
-  return join(process.env.HOME ?? '/tmp', '.leetcode-commit', '.refresh.lock')
+  const home = homedir()
+  if (!home) {
+    throw new Error('Cannot resolve home directory for refresh lock')
+  }
+  return join(home, '.leetcode-commit', '.refresh.lock')
 }
