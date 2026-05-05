@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdirSync, rmSync, existsSync } from 'fs'
+import { mkdirSync, rmSync, existsSync, statSync, chmodSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -61,5 +61,46 @@ describe('config loader', () => {
       github: { repoPath: '/tmp/x' },
     })
     expect(configExists()).toBe(true)
+  })
+
+  it('writes config file with 0600 permissions', async () => {
+    const { saveConfig } = await import('../../src/config/loader.js')
+    saveConfig({
+      leetcode: { sessionCookie: 'secret-cookie' },
+      github: { repoPath: '/tmp/x' },
+    })
+    const stat = statSync(join(testDir, 'config.json'))
+    expect(stat.mode & 0o777).toBe(0o600)
+  })
+
+  it('tightens permissions on existing loose config file', async () => {
+    const configPath = join(testDir, 'config.json')
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        leetcode: { sessionCookie: 'old' },
+        github: { repoPath: '/tmp/x' },
+      }),
+      { mode: 0o644 }
+    )
+    chmodSync(configPath, 0o644)
+    const { saveConfig } = await import('../../src/config/loader.js')
+    saveConfig({
+      leetcode: { sessionCookie: 'new-secret' },
+      github: { repoPath: '/tmp/x' },
+    })
+    const stat = statSync(configPath)
+    expect(stat.mode & 0o777).toBe(0o600)
+  })
+
+  it('creates config dir with 0700 permissions when missing', async () => {
+    rmSync(testDir, { recursive: true })
+    const { saveConfig } = await import('../../src/config/loader.js')
+    saveConfig({
+      leetcode: { sessionCookie: 'abc' },
+      github: { repoPath: '/tmp/x' },
+    })
+    const stat = statSync(testDir)
+    expect(stat.mode & 0o777).toBe(0o700)
   })
 })
