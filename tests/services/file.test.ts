@@ -115,4 +115,24 @@ describe('saveSubmission', () => {
     const result = saveSubmission(testRepo, problem, detail)
     expect(result.filePath).toBe(join(testRepo, 'Easy', '0001-two-sum', 'solution.py'))
   })
+
+  it('rejects titleSlug with path traversal', () => {
+    const evil = { ...problem, titleSlug: '../../etc/passwd' }
+    expect(() => saveSubmission(testRepo, evil, detail)).toThrow(/title.?slug/i)
+  })
+
+  it('rejects titleSlug with shell metacharacters', () => {
+    const evil = { ...problem, titleSlug: 'two-sum;rm -rf /' }
+    expect(() => saveSubmission(testRepo, evil, detail)).toThrow(/title.?slug/i)
+  })
+
+  it('rejects difficulty outside Easy|Medium|Hard', () => {
+    const evil = { ...problem, difficulty: '../etc' as ProblemInfo['difficulty'] }
+    expect(() => saveSubmission(testRepo, evil, detail)).toThrow(/difficulty/i)
+  })
+
+  it('rejects frontendQuestionId with non-digits', () => {
+    const evil = { ...problem, frontendQuestionId: '1/../2' }
+    expect(() => saveSubmission(testRepo, evil, detail)).toThrow(/question.?id/i)
+  })
 })

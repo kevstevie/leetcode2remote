@@ -1,7 +1,20 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { join, relative, isAbsolute } from 'path'
+import { z } from 'zod'
 import { getFileExtension, getLanguageDisplayName } from '../utils/language-map.js'
 import type { ProblemInfo, SubmissionDetail } from '../types/index.js'
+
+const safeProblemSchema = z.object({
+  frontendQuestionId: z.string().regex(/^\d+$/, 'frontendQuestionId must be digits only'),
+  titleSlug: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-z0-9-]+$/, 'titleSlug must match /^[a-z0-9-]+$/'),
+  difficulty: z.enum(['Easy', 'Medium', 'Hard'], {
+    errorMap: () => ({ message: 'difficulty must be Easy, Medium, or Hard' }),
+  }),
+})
 
 function buildDirName(problem: ProblemInfo): string {
   const paddedId = problem.frontendQuestionId.padStart(4, '0')
@@ -68,10 +81,21 @@ export function saveSubmission(
   problem: ProblemInfo,
   detail: SubmissionDetail
 ): SaveResult {
+  const parsed = safeProblemSchema.safeParse(problem)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    throw new Error(`Invalid problem metadata: ${issue.path.join('.')}: ${issue.message}`)
+  }
+
   const dirName = buildDirName(problem)
   const ext = getFileExtension(detail.lang.name)
   const dirPath = join(repoPath, problem.difficulty, dirName)
   const filePath = join(dirPath, `solution${ext}`)
+
+  const rel = relative(repoPath, filePath)
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(`Refusing to write outside repoPath: ${filePath}`)
+  }
 
   const header = buildHeader(problem, detail)
   const code = detail.code.endsWith('\n') ? detail.code : detail.code + '\n'
