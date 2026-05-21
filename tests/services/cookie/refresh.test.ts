@@ -77,9 +77,25 @@ describe('refreshSessionCookie', () => {
     expect(saveSpy).not.toHaveBeenCalled()
   })
 
-  it('returns invalid_cookie_format when extracted value matches the failing one', async () => {
+  it('forwards the current cookie as excludeValue so extract can skip stale browsers', async () => {
+    const { deps } = makeDeps({
+      extractResult: { ok: true, value: 'fresh-cookie-aaaaaaaaaaaaaaaa', browser: 'chrome' },
+    })
+
+    await refreshSessionCookie(baseConfig, {}, deps)
+    expect(deps.extract).toHaveBeenCalledWith(
+      expect.objectContaining({ excludeValue: 'old-cookie' }),
+    )
+  })
+
+  it('propagates invalid_cookie_format when extract rejects every browser as stale', async () => {
     const { saveSpy, deps } = makeDeps({
-      extractResult: { ok: true, value: 'old-cookie', browser: 'chrome' },
+      extractResult: {
+        ok: false,
+        reason: 'invalid_cookie_format',
+        browser: 'chrome',
+        detail: 'browser cookie matches the already-failing one',
+      },
     })
 
     const result = await refreshSessionCookie(baseConfig, {}, deps)
@@ -95,21 +111,27 @@ describe('refreshSessionCookie', () => {
     if (!result.ok) expect(result.reason).toBe('lock_timeout')
   })
 
-  it('uses preferredBrowser from current config when not overridden', async () => {
+  it('passes browser through to extract when caller specifies it', async () => {
     const { deps } = makeDeps({
       extractResult: { ok: true, value: 'fresh-cookie-aaaaaaaaaaaaaaaa', browser: 'firefox' },
+    })
+    await refreshSessionCookie(baseConfig, { browser: 'firefox' }, deps)
+    expect(deps.extract).toHaveBeenCalledWith(
+      expect.objectContaining({ browser: 'firefox', interactive: false })
+    )
+  })
+
+  it('passes browser=undefined when caller omits it, letting extract try all browsers', async () => {
+    const { deps } = makeDeps({
+      extractResult: { ok: true, value: 'fresh-cookie-aaaaaaaaaaaaaaaa', browser: 'chrome' },
       loadResult: {
         ...baseConfig,
         leetcode: { ...baseConfig.leetcode, preferredBrowser: 'firefox' },
       },
     })
-    await refreshSessionCookie(
-      { ...baseConfig, leetcode: { ...baseConfig.leetcode, preferredBrowser: 'firefox' } },
-      {},
-      deps
-    )
+    await refreshSessionCookie(baseConfig, {}, deps)
     expect(deps.extract).toHaveBeenCalledWith(
-      expect.objectContaining({ browser: 'firefox', interactive: false })
+      expect.objectContaining({ browser: undefined })
     )
   })
 

@@ -25,10 +25,7 @@ export function buildOnAuthFailure(
     if (attempt === 'auto') {
       if (!options.autoRefresh) return null
       logger.warn('Session expired. Attempting auto-refresh from browser cookie...')
-      const result = await refreshSessionCookie(config, {
-        browser: config.leetcode.preferredBrowser,
-        interactive: false,
-      })
+      const result = await refreshWithFallback(config, false)
       return handleRefreshResult(result)
     }
 
@@ -48,12 +45,25 @@ export function buildOnAuthFailure(
     const proceed = await waitForUser('Press Enter after logging in (Ctrl+C to cancel)... ')
     if (!proceed) return null
 
-    const result = await refreshSessionCookie(config, {
-      browser: config.leetcode.preferredBrowser,
-      interactive: true,
-    })
+    const result = await refreshWithFallback(config, true)
     return handleRefreshResult(result)
   }
+}
+
+async function refreshWithFallback(
+  config: Config,
+  interactive: boolean
+): Promise<RefreshResult> {
+  const preferred = config.leetcode.preferredBrowser
+  if (!preferred) {
+    return refreshSessionCookie(config, { interactive })
+  }
+
+  const first = await refreshSessionCookie(config, { browser: preferred, interactive })
+  if (first.ok) return first
+
+  logger.warn(`Preferred browser (${preferred}) didn't yield a fresh cookie. Trying other browsers...`)
+  return refreshSessionCookie(config, { interactive })
 }
 
 function handleRefreshResult(result: RefreshResult): string | null {

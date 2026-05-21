@@ -49,21 +49,13 @@ export async function refreshSessionCookie(
     }
 
     const result = await extract({
-      browser: opts.browser ?? fresh.leetcode.preferredBrowser,
+      browser: opts.browser,
       interactive: opts.interactive ?? false,
+      excludeValue: currentConfig.leetcode.sessionCookie,
     })
 
     if (!result.ok) {
       return { ok: false, reason: result.reason, browser: result.browser, detail: result.detail }
-    }
-
-    if (result.value === currentConfig.leetcode.sessionCookie) {
-      return {
-        ok: false,
-        reason: 'invalid_cookie_format',
-        browser: result.browser,
-        detail: 'browser cookie matches the already-failing one',
-      }
     }
 
     saveConfig({

@@ -38,6 +38,7 @@ export interface DetectedBrowser {
 export interface ExtractOptions {
   browser?: BrowserId
   interactive: boolean
+  excludeValue?: string
 }
 
 export interface BrowserExtractor {
