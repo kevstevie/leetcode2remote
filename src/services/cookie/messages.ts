@@ -15,7 +15,22 @@ const REASONS: Record<ExtractionFailureReason | 'lock_timeout', string> = {
   lock_timeout: 'another lcp process is refreshing; timed out',
 }
 
+/**
+ * Environmental failures are not fixed by re-running `leetcode-commit cookie` — that path
+ * would fail identically — so each one carries the command that actually resolves it.
+ */
+const REMEDIES: Partial<Record<ExtractionFailureReason | 'lock_timeout', string>> = {
+  native_module_missing: 'run `npm rebuild better-sqlite3`',
+  keychain_denied: 'retry and choose "Always Allow" at the Keychain prompt',
+  browser_running: 'quit the browser, or pass --browser <other>',
+  cookie_not_found: 'log in to leetcode.com in that browser',
+  cookie_db_missing: 'open the browser once and log in to leetcode.com',
+  no_browser_detected: 'install Chrome, Firefox, Edge, Brave, or Arc and log in',
+}
+
 export function formatRefreshFailure(result: RefreshResult & { ok: false }): string {
   const browser = result.browser ? ` [${result.browser}]` : ''
-  return `${REASONS[result.reason] ?? 'unknown'}${browser}`
+  const remedy = REMEDIES[result.reason]
+  const suffix = remedy ? ` — ${remedy}` : ''
+  return `${REASONS[result.reason] ?? 'unknown'}${browser}${suffix}`
 }

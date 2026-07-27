@@ -121,16 +121,12 @@ export class LeetCodeClient {
     this.onAuthFailure = options.onAuthFailure
   }
 
-  private async graphql<T>(
-    query: string,
-    variables: Record<string, unknown>,
-    retryStage: 0 | 1 | 2 = 0
-  ): Promise<T> {
+  private request(query: string, variables: Record<string, unknown>): Promise<Response> {
     const cookie = this.currentCookie.startsWith('LEETCODE_SESSION=')
       ? this.currentCookie
       : `LEETCODE_SESSION=${this.currentCookie}`
 
-    const response = await fetch(LEETCODE_GRAPHQL_URL, {
+    return fetch(LEETCODE_GRAPHQL_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,14 +137,50 @@ export class LeetCodeClient {
       },
       body: JSON.stringify({ query, variables }),
     })
+  }
+
+  /**
+   * LeetCode answers an expired session with HTTP 200 and a null payload instead of
+   * 401/403, so `userStatus` is the only unambiguous signal. Deliberately never throws:
+   * a failed probe is inconclusive, not proof of expiry, and must not trigger a refresh.
+   */
+  private async probeSignedOut(): Promise<boolean> {
+    try {
+      const response = await this.request(GLOBAL_DATA_QUERY, {})
+      if (!response.ok) return false
+      const json = (await response.json()) as {
+        data?: { userStatus?: { isSignedIn?: boolean } | null }
+      }
+      return json.data?.userStatus?.isSignedIn === false
+    } catch {
+      return false
+    }
+  }
+
+  private async attemptReauth(retryStage: 0 | 1): Promise<string | null> {
+    if (!this.onAuthFailure) return null
+    const stage: AuthFailureAttempt = retryStage === 0 ? 'auto' : 'interactive'
+    return this.onAuthFailure(stage)
+  }
+
+  /**
+   * `detectSignedOut` flags a payload that *may* mean the session died. It only suspects;
+   * probeSignedOut() confirms, so a genuinely-unsolved problem never triggers a refresh.
+   */
+  private async graphql<T>(
+    query: string,
+    variables: Record<string, unknown>,
+    retryStage: 0 | 1 | 2 = 0,
+    detectSignedOut?: (data: T) => boolean
+  ): Promise<T> {
+    const response = await this.request(query, variables)
 
     if (response.status === 401 || response.status === 403) {
-      if (this.onAuthFailure && retryStage < 2) {
-        const stage: AuthFailureAttempt = retryStage === 0 ? 'auto' : 'interactive'
-        const fresh = await this.onAuthFailure(stage)
+      if (retryStage < 2) {
+        const fresh = await this.attemptReauth(retryStage as 0 | 1)
         if (fresh) {
           this.currentCookie = fresh
-          return this.graphql<T>(query, variables, (retryStage + 1) as 1 | 2)
+          return this.graphql<T>(query, variables, (retryStage + 1) as 1 | 2, detectSignedOut)
         }
       }
       throw new Error(SESSION_EXPIRED_MESSAGE)
@@ -167,6 +199,17 @@ export class LeetCodeClient {
 
     if (!json.data) {
       throw new Error('LeetCode API returned empty data')
+    }
+
+    if (detectSignedOut?.(json.data) && (await this.probeSignedOut())) {
+      if (retryStage < 2) {
+        const fresh = await this.attemptReauth(retryStage as 0 | 1)
+        if (fresh) {
+          this.currentCookie = fresh
+          return this.graphql<T>(query, variables, (retryStage + 1) as 1 | 2, detectSignedOut)
+        }
+      }
+      throw new Error(SESSION_EXPIRED_MESSAGE)
     }
 
     return json.data
@@ -211,14 +254,20 @@ export class LeetCodeClient {
   async getLatestAcceptedSubmission(titleSlug: string): Promise<Submission> {
     const data = await this.graphql<{
       questionSubmissionList: {
-        submissions: Submission[]
+        submissions: Submission[] | null
       } | null
-    }>(SUBMISSION_LIST_QUERY, {
-      questionSlug: titleSlug,
-      status: ACCEPTED_STATUS,
-      limit: 1,
-      offset: 0,
-    })
+    }>(
+      SUBMISSION_LIST_QUERY,
+      {
+        questionSlug: titleSlug,
+        status: ACCEPTED_STATUS,
+        limit: 1,
+        offset: 0,
+      },
+      0,
+      // Signed out yields `submissions: null`; signed in but unsolved yields `[]`.
+      (d) => !d.questionSubmissionList || d.questionSubmissionList.submissions === null
+    )
 
     const submissions = data.questionSubmissionList?.submissions ?? []
     if (submissions.length === 0) {
@@ -232,9 +281,11 @@ export class LeetCodeClient {
   }
 
   async getSubmissionDetail(submissionId: string): Promise<SubmissionDetail> {
-    const data = await this.graphql<{ submissionDetails: SubmissionDetail }>(
+    const data = await this.graphql<{ submissionDetails: SubmissionDetail | null }>(
       SUBMISSION_DETAIL_QUERY,
-      { submissionId: parseInt(submissionId, 10) }
+      { submissionId: parseInt(submissionId, 10) },
+      0,
+      (d) => !d.submissionDetails
     )
 
     if (!data.submissionDetails) {
@@ -247,7 +298,9 @@ export class LeetCodeClient {
   async getUsername(): Promise<string> {
     const data = await this.graphql<{ userStatus: { isSignedIn: boolean; username: string } | null }>(
       GLOBAL_DATA_QUERY,
-      {}
+      {},
+      0,
+      (d) => !d.userStatus?.isSignedIn
     )
 
     const status = data.userStatus
@@ -263,7 +316,7 @@ export class LeetCodeClient {
 
     const data = await this.graphql<{
       recentAcSubmissionList: RecentAcSubmission[] | null
-    }>(RECENT_AC_SUBMISSIONS_QUERY, { username, limit })
+    }>(RECENT_AC_SUBMISSIONS_QUERY, { username, limit }, 0, (d) => d.recentAcSubmissionList === null)
 
     const list = data.recentAcSubmissionList ?? []
     if (list.length === 0) {
