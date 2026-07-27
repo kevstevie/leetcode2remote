@@ -38,6 +38,27 @@ async function loadSqlite(): Promise<typeof import('better-sqlite3') | null> {
   }
 }
 
+/**
+ * better-sqlite3 dlopen()s its prebuilt binary lazily, on the first `new Database()`.
+ * An ABI mismatch (Node upgraded without `npm rebuild`) therefore surfaces here rather
+ * than at import time, so it has to be normalised into the same `native_module_missing`
+ * signal callers already know how to report.
+ */
+export function isNativeBindingError(err: unknown): boolean {
+  if ((err as { code?: string } | null)?.code === 'ERR_DLOPEN_FAILED') return true
+  const message = err instanceof Error ? err.message : ''
+  return message.includes('NODE_MODULE_VERSION') || message.includes('bindings file')
+}
+
+function openDb(Sqlite: typeof import('better-sqlite3'), copyPath: string) {
+  try {
+    return new Sqlite(copyPath, { readonly: true, fileMustExist: true })
+  } catch (err) {
+    if (isNativeBindingError(err)) throw new Error('native_module_missing')
+    throw err
+  }
+}
+
 function withCopiedDb<T>(dbPath: string, fn: (copyPath: string) => T): T {
   const dir = mkdtempSync(join(tmpdir(), 'lcp-cookie-'))
   const copy = join(dir, 'cookies.db')
@@ -59,7 +80,7 @@ export const realChromiumCookieReader: CookieDbReader = async (dbPath, host, nam
   if (!Sqlite) throw new Error('native_module_missing')
 
   return withCopiedDb(dbPath, (copyPath) => {
-    const db = new Sqlite(copyPath, { readonly: true, fileMustExist: true })
+    const db = openDb(Sqlite, copyPath)
     try {
       const stmt = db.prepare(
         'SELECT host_key, name, value, encrypted_value, expires_utc FROM cookies WHERE (host_key = ? OR host_key = ?) AND name = ? ORDER BY expires_utc DESC LIMIT 1'
@@ -85,7 +106,7 @@ export const realFirefoxCookieReader: FirefoxDbReader = async (dbPath, host, nam
   if (!Sqlite) throw new Error('native_module_missing')
 
   return withCopiedDb(dbPath, (copyPath) => {
-    const db = new Sqlite(copyPath, { readonly: true, fileMustExist: true })
+    const db = openDb(Sqlite, copyPath)
     try {
       const stmt = db.prepare(
         'SELECT host, name, value, expiry FROM moz_cookies WHERE (host = ? OR host = ?) AND name = ? ORDER BY expiry DESC LIMIT 1'
