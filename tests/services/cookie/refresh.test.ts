@@ -104,6 +104,20 @@ describe('refreshSessionCookie', () => {
     expect(saveSpy).not.toHaveBeenCalled()
   })
 
+  it('forwards the per-browser attempts so callers can show every failure', async () => {
+    const attempts = [
+      { ok: false, reason: 'keychain_denied', browser: 'chrome' },
+      { ok: false, reason: 'cookie_not_found', browser: 'firefox' },
+    ] as const
+    const { deps } = makeDeps({
+      extractResult: { ok: false, reason: 'cookie_not_found', browser: 'firefox', attempts },
+    })
+
+    const result = await refreshSessionCookie(baseConfig, {}, deps)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.attempts).toEqual(attempts)
+  })
+
   it('returns lock_timeout when lock cannot be acquired', async () => {
     const { deps } = makeDeps({ lockResult: null })
     const result = await refreshSessionCookie(baseConfig, {}, deps)

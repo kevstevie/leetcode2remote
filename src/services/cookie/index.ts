@@ -1,7 +1,7 @@
 import { detectAllBrowsers, detectBrowser, isPlatformSupported } from './detect.js'
 import { extractChromiumCookie } from './chrome.js'
 import { extractFirefoxCookie } from './firefox.js'
-import type { BrowserId, ExtractOptions, ExtractionResult } from './types.js'
+import type { BrowserId, ExtractOptions, ExtractionFailure, ExtractionResult } from './types.js'
 
 export type { BrowserId, ExtractionResult, ExtractionFailureReason, DetectedBrowser } from './types.js'
 export { detectAllBrowsers, detectBrowser, isPlatformSupported } from './detect.js'
@@ -26,13 +26,16 @@ export async function extractLeetCodeSession(
     return { ok: false, reason: 'no_browser_detected' }
   }
 
-  let lastFailure: ExtractionResult | null = null
+  let failures: readonly ExtractionFailure[] = []
   for (const { browser } of detected) {
     const result = await extractAndValidate(browser, opts.excludeValue)
     if (result.ok) return result
-    lastFailure = result
+    failures = [...failures, result]
   }
-  return lastFailure ?? { ok: false, reason: 'no_browser_detected' }
+
+  const last = failures[failures.length - 1]
+  if (!last) return { ok: false, reason: 'no_browser_detected' }
+  return failures.length > 1 ? { ...last, attempts: failures } : last
 }
 
 async function extractAndValidate(

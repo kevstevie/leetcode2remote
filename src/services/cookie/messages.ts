@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import type { BrowserId, ExtractionFailureReason } from './types.js'
+import type { BrowserId, ExtractionFailure, ExtractionFailureReason } from './types.js'
 
 export type FailureReason = ExtractionFailureReason | 'lock_timeout'
 
@@ -8,6 +8,7 @@ export interface FailureInfo {
   readonly reason: FailureReason
   readonly browser?: BrowserId
   readonly detail?: string
+  readonly attempts?: readonly ExtractionFailure[]
 }
 
 const MANUAL_FALLBACK =
@@ -64,6 +65,26 @@ function sanitizeDetail(detail: string): string {
 }
 
 export function formatExtractionFailure(result: FailureInfo): string {
+  const attempts = result.attempts ?? []
+  if (attempts.length > 1) return formatAttempts(attempts)
+  return formatSingleFailure(result)
+}
+
+function formatAttempts(attempts: readonly ExtractionFailure[]): string {
+  const lines = attempts.map((attempt) => bullet(formatSingleFailure(attempt)))
+  return [`Could not extract LEETCODE_SESSION from any of ${attempts.length} browsers:`, ...lines].join(
+    '\n'
+  )
+}
+
+function bullet(text: string): string {
+  return text
+    .split('\n')
+    .map((line, index) => (index === 0 ? `  - ${line}` : `    ${line}`))
+    .join('\n')
+}
+
+function formatSingleFailure(result: FailureInfo): string {
   const where = result.browser ? ` (${result.browser})` : ''
   const summary = SUMMARIES[result.reason](where)
   const remedy = REMEDIES[result.reason]

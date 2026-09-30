@@ -64,6 +64,27 @@ describe('buildOnAuthFailure auto stage', () => {
     expect(output).toContain('EACCES: permission denied')
   })
 
+  it('logs every browser failure, not just the last one', async () => {
+    refreshMock.mockResolvedValue({
+      ok: false,
+      reason: 'cookie_not_found',
+      browser: 'arc',
+      attempts: [
+        { ok: false, reason: 'keychain_denied', browser: 'chrome' },
+        { ok: false, reason: 'cookie_not_found', browser: 'arc' },
+      ],
+    })
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+    const handler = buildOnAuthFailure(config, autoOnly)
+    await handler?.('auto')
+
+    const output = warn.mock.calls.map(([msg]) => msg).join('\n')
+    expect(output).toContain('Keychain')
+    expect(output).toContain('chrome')
+    expect(output).toContain('arc')
+  })
+
   it('logs a remedy for reasons the short refresh table used to omit', async () => {
     refreshMock.mockResolvedValue({ ok: false, reason: 'decrypt_failed', browser: 'chrome' })
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})

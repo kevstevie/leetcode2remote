@@ -30,6 +30,7 @@ export interface ExtractionFailure {
   reason: ExtractionFailureReason
   browser?: BrowserId
   detail?: string
+  attempts?: readonly ExtractionFailure[]
 }
 
 export type ExtractionResult = ExtractionSuccess | ExtractionFailure

@@ -1,7 +1,12 @@
 import { loadConfig as defaultLoadConfig, saveConfig as defaultSaveConfig } from '../../config/loader.js'
 import { extractLeetCodeSession as defaultExtract } from './index.js'
 import { acquireLock as defaultAcquireLock, getRefreshLockPath } from './lock.js'
-import type { BrowserId, ExtractionFailureReason, ExtractionResult } from './types.js'
+import type {
+  BrowserId,
+  ExtractionFailure,
+  ExtractionFailureReason,
+  ExtractionResult,
+} from './types.js'
 import type { Config } from '../../config/schema.js'
 
 export interface RefreshOptions {
@@ -11,7 +16,13 @@ export interface RefreshOptions {
 
 export type RefreshResult =
   | { ok: true; newCookie: string; browser: BrowserId; expiresAt?: Date }
-  | { ok: false; reason: ExtractionFailureReason | 'lock_timeout'; browser?: BrowserId; detail?: string }
+  | {
+      ok: false
+      reason: ExtractionFailureReason | 'lock_timeout'
+      browser?: BrowserId
+      detail?: string
+      attempts?: readonly ExtractionFailure[]
+    }
 
 export interface RefreshDeps {
   loadConfig?: () => Config
@@ -55,7 +66,13 @@ export async function refreshSessionCookie(
     })
 
     if (!result.ok) {
-      return { ok: false, reason: result.reason, browser: result.browser, detail: result.detail }
+      return {
+        ok: false,
+        reason: result.reason,
+        browser: result.browser,
+        detail: result.detail,
+        attempts: result.attempts,
+      }
     }
 
     saveConfig({

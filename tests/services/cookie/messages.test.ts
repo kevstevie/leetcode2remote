@@ -85,6 +85,37 @@ describe('formatExtractionFailure coverage', () => {
   })
 })
 
+describe('formatExtractionFailure attempts', () => {
+  const keychain = { ok: false, reason: 'keychain_denied', browser: 'chrome' } as const
+  const missing = { ok: false, reason: 'cookie_not_found', browser: 'arc' } as const
+
+  it('lists every browser failure when several browsers were tried', () => {
+    const msg = formatExtractionFailure({ ...missing, attempts: [keychain, missing] })
+    expect(msg).toContain('any of 2 browsers')
+    expect(msg).toContain('Keychain')
+    expect(msg).toContain('chrome')
+    expect(msg).toContain('LEETCODE_SESSION cookie not found')
+    expect(msg).toContain('arc')
+  })
+
+  it('keeps each attempt detail attached to its own browser', () => {
+    const unreadable = {
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      browser: 'chrome',
+      detail: 'EACCES: permission denied',
+    } as const
+    const msg = formatExtractionFailure({ ...missing, attempts: [unreadable, missing] })
+    expect(msg).toContain('Detail: EACCES: permission denied')
+  })
+
+  it('falls back to the single-failure format for one or zero attempts', () => {
+    const single = formatExtractionFailure(missing)
+    expect(formatExtractionFailure({ ...missing, attempts: [missing] })).toBe(single)
+    expect(formatExtractionFailure({ ...missing, attempts: [] })).toBe(single)
+  })
+})
+
 describe('formatExtractionFailure detail', () => {
   it.each([
     ['decrypt_failed', 'unsupported encryption version: v99'],

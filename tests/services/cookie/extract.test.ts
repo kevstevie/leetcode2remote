@@ -77,4 +77,44 @@ describe('extractLeetCodeSession excludeValue', () => {
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.value).toBe('any-cookie')
   })
+
+  it('keeps every browser failure so an earlier actionable one is not hidden', async () => {
+    extractChromiumMock.mockResolvedValueOnce({ ok: false, reason: 'keychain_denied', browser: 'chrome' })
+    extractFirefoxMock.mockResolvedValueOnce({ ok: false, reason: 'cookie_not_found', browser: 'firefox' })
+
+    const { extractLeetCodeSession } = await import('../../../src/services/cookie/index.js')
+    const result = await extractLeetCodeSession({ interactive: false })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('cookie_not_found')
+      expect(result.attempts?.map((a) => [a.browser, a.reason])).toEqual([
+        ['chrome', 'keychain_denied'],
+        ['firefox', 'cookie_not_found'],
+      ])
+    }
+  })
+
+  it('records stale-cookie rejections among the attempts too', async () => {
+    extractChromiumMock.mockResolvedValueOnce({ ok: true, value: 'stale-cookie', browser: 'chrome' })
+    extractFirefoxMock.mockResolvedValueOnce({ ok: false, reason: 'browser_running', browser: 'firefox' })
+
+    const { extractLeetCodeSession } = await import('../../../src/services/cookie/index.js')
+    const result = await extractLeetCodeSession({ interactive: false, excludeValue: 'stale-cookie' })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.attempts?.map((a) => a.reason)).toEqual(['invalid_cookie_format', 'browser_running'])
+    }
+  })
+
+  it('does not add attempts when a specific browser is requested', async () => {
+    extractChromiumMock.mockResolvedValueOnce({ ok: false, reason: 'keychain_denied', browser: 'chrome' })
+
+    const { extractLeetCodeSession } = await import('../../../src/services/cookie/index.js')
+    const result = await extractLeetCodeSession({ interactive: false, browser: 'chrome' })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.attempts).toBeUndefined()
+  })
 })
