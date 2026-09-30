@@ -50,6 +50,18 @@ describe('extractFirefoxCookie', () => {
     expect(result).toMatchObject({ ok: false, reason: 'browser_running' })
   })
 
+  it('returns cookie_db_unreadable, not decrypt_failed, when the DB cannot be read', async () => {
+    const readCookie: FirefoxDbReader = async () => {
+      throw new Error('database disk image is malformed')
+    }
+    const result = await extractFirefoxCookie({
+      readCookie,
+      cookieDbPath: '/fake/firefox.sqlite',
+    })
+    expect(result).toMatchObject({ ok: false, reason: 'cookie_db_unreadable', browser: 'firefox' })
+    if (!result.ok) expect(result.detail).toContain('malformed')
+  })
+
   it('returns invalid_cookie_format when value is empty or short', async () => {
     const readCookie: FirefoxDbReader = async () => ({
       host: '.leetcode.com',

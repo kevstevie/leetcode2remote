@@ -7,6 +7,7 @@ export const EXTRACTION_FAILURE_REASONS = [
   'no_browser_detected',
   'browser_not_installed',
   'cookie_db_missing',
+  'cookie_db_unreadable',
   'cookie_not_found',
   'browser_running',
   'keychain_denied',

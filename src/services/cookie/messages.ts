@@ -17,6 +17,7 @@ const SUMMARIES: Record<FailureReason, (where: string) => string> = {
   no_browser_detected: () => 'No supported browser found.',
   browser_not_installed: (where) => `Browser not installed${where}.`,
   cookie_db_missing: (where) => `Browser cookie database not found${where}.`,
+  cookie_db_unreadable: (where) => `Could not read the browser cookie database${where}.`,
   cookie_not_found: (where) => `LEETCODE_SESSION cookie not found${where}.`,
   browser_running: (where) => `Browser is running and holds the cookie database lock${where}.`,
   keychain_denied: (where) => `macOS Keychain access was denied${where}.`,
@@ -31,6 +32,8 @@ const REMEDIES: Record<FailureReason, string> = {
   no_browser_detected: 'Install Chrome, Firefox, Edge, Brave, or Arc and log in to leetcode.com.',
   browser_not_installed: 'Install it, or pick another one with --browser <chrome|firefox|edge|brave|arc>.',
   cookie_db_missing: 'Open the browser at least once and log in to leetcode.com.',
+  cookie_db_unreadable:
+    'Check that the file is readable, not corrupted, and that the disk has free space, then retry. Or use a different browser with --browser.',
   cookie_not_found: 'Log in to leetcode.com in that browser, then retry.',
   browser_running: 'Close the browser or use a different one with --browser.',
   keychain_denied: 'Allow access when prompted, or click "Always Allow".',

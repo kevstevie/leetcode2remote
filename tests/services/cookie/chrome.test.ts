@@ -104,6 +104,41 @@ describe('extractChromiumCookie', () => {
     expect(result).toMatchObject({ ok: false, reason: 'browser_running' })
   })
 
+  it('returns cookie_db_unreadable with the cause when the DB cannot be copied', async () => {
+    const readCookie: CookieDbReader = async () => {
+      throw new Error("EACCES: permission denied, copyfile '/fake/path' -> '/tmp/x/cookies.db'")
+    }
+    const result = await extractChromiumCookie('chrome', {
+      readCookie,
+      readKeychain: async () => PASSWORD,
+      cookieDbPath: '/fake/path',
+    })
+    expect(result).toMatchObject({ ok: false, reason: 'cookie_db_unreadable', browser: 'chrome' })
+    if (!result.ok) expect(result.detail).toContain('EACCES')
+  })
+
+  it('returns cookie_db_unreadable when the file is not a valid database', async () => {
+    const readCookie: CookieDbReader = async () => {
+      throw new Error('file is not a database')
+    }
+    const result = await extractChromiumCookie('chrome', {
+      readCookie,
+      readKeychain: async () => PASSWORD,
+      cookieDbPath: '/fake/path',
+    })
+    expect(result).toMatchObject({ ok: false, reason: 'cookie_db_unreadable' })
+  })
+
+  it('still returns decrypt_failed when the ciphertext itself cannot be decrypted', async () => {
+    const result = await extractChromiumCookie('chrome', {
+      readCookie: async () =>
+        fakeRow({ encrypted_value: Buffer.concat([Buffer.from('v99'), Buffer.from('xx')]) }),
+      readKeychain: async () => PASSWORD,
+      cookieDbPath: '/fake/path',
+    })
+    expect(result).toMatchObject({ ok: false, reason: 'decrypt_failed', browser: 'chrome' })
+  })
+
   it('returns native_module_missing when sqlite native module fails to load', async () => {
     const readCookie: CookieDbReader = async () => {
       throw new Error('native_module_missing')

@@ -31,7 +31,7 @@ export async function extractFirefoxCookie(
     if (message.includes('SQLITE_BUSY') || message.includes('locked')) {
       return { ok: false, reason: 'browser_running', browser: 'firefox', detail: message }
     }
-    return { ok: false, reason: 'decrypt_failed', browser: 'firefox', detail: message }
+    return { ok: false, reason: 'cookie_db_unreadable', browser: 'firefox', detail: message }
   }
 
   if (!row) {

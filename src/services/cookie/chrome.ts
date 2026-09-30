@@ -46,7 +46,7 @@ export async function extractChromiumCookie(
     if (message.includes('ENOENT')) {
       return { ok: false, reason: 'cookie_db_missing', browser }
     }
-    return { ok: false, reason: 'decrypt_failed', browser, detail: message }
+    return { ok: false, reason: 'cookie_db_unreadable', browser, detail: message }
   }
 
   if (!row) {
