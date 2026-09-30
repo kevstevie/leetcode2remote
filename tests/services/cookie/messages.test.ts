@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { homedir } from 'node:os'
 import { formatExtractionFailure } from '../../../src/services/cookie/messages.js'
 import { EXTRACTION_FAILURE_REASONS } from '../../../src/services/cookie/types.js'
 
@@ -81,5 +82,75 @@ describe('formatExtractionFailure coverage', () => {
   it('formats lock_timeout from the refresh path', () => {
     const msg = formatExtractionFailure({ ok: false, reason: 'lock_timeout' })
     expect(msg).toMatch(/another lcp process/i)
+  })
+})
+
+describe('formatExtractionFailure detail', () => {
+  it.each([
+    ['decrypt_failed', 'unsupported encryption version: v99'],
+    ['cookie_db_unreadable', 'EACCES: permission denied'],
+    ['browser_running', 'SQLITE_BUSY: database is locked'],
+    ['invalid_cookie_format', 'browser cookie matches the already-failing one'],
+  ] as const)('shows the underlying detail for %s', (reason, detail) => {
+    const msg = formatExtractionFailure({ ok: false, reason, browser: 'chrome', detail })
+    expect(msg).toContain(`Detail: ${detail}`)
+  })
+
+  it('omits the detail line when there is no detail', () => {
+    const msg = formatExtractionFailure({ ok: false, reason: 'decrypt_failed', browser: 'chrome' })
+    expect(msg).not.toContain('Detail:')
+  })
+
+  it('ignores detail for reasons whose remedy already says everything', () => {
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_not_found',
+      browser: 'chrome',
+      detail: 'irrelevant internal text',
+    })
+    expect(msg).not.toContain('irrelevant internal text')
+  })
+
+  it('replaces the home directory with ~', () => {
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: `EACCES: permission denied, copyfile '${homedir()}/Library/Cookies'`,
+    })
+    expect(msg).toContain("'~/Library/Cookies'")
+    expect(msg).not.toContain(homedir())
+  })
+
+  it('redacts token-like values so a cookie can never leak through detail', () => {
+    const session = 'eyJhbGciOiJIUzI1NiJ9.aaaaaaaaaaaaaaaaaaaa.bbbbbbb'
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'decrypt_failed',
+      detail: `bad value ${session} in row`,
+    })
+    expect(msg).not.toContain('eyJhbGci')
+    expect(msg).toContain('[redacted]')
+    expect(msg).toContain('in row')
+  })
+
+  it('keeps only the first line of a multi-line detail', () => {
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: 'first line\nsecond line with more internals',
+    })
+    expect(msg).toContain('first line')
+    expect(msg).not.toContain('second line')
+  })
+
+  it('truncates very long detail', () => {
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: 'word '.repeat(200),
+    })
+    const detailLine = msg.split('\n').find((line) => line.includes('Detail:')) ?? ''
+    expect(detailLine.length).toBeLessThanOrEqual(220)
+    expect(detailLine.endsWith('…')).toBe(true)
   })
 })

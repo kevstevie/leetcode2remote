@@ -1,3 +1,4 @@
+import { homedir } from 'node:os'
 import type { BrowserId, ExtractionFailureReason } from './types.js'
 
 export type FailureReason = ExtractionFailureReason | 'lock_timeout'
@@ -44,12 +45,34 @@ const REMEDIES: Record<FailureReason, string> = {
   lock_timeout: 'Retry in a moment.',
 }
 
+const DETAIL_REASONS: ReadonlySet<FailureReason> = new Set<FailureReason>([
+  'decrypt_failed',
+  'cookie_db_unreadable',
+  'browser_running',
+  'invalid_cookie_format',
+])
+
+const MAX_DETAIL_LENGTH = 200
+const TOKEN_LIKE = /[A-Za-z0-9._~+=-]{32,}/g
+
+function sanitizeDetail(detail: string): string {
+  const home = homedir()
+  const firstLine = (detail.split('\n')[0] ?? '').trim()
+  const withoutHome = home.length > 1 ? firstLine.split(home).join('~') : firstLine
+  const redacted = withoutHome.replace(TOKEN_LIKE, '[redacted]')
+  return redacted.length > MAX_DETAIL_LENGTH ? `${redacted.slice(0, MAX_DETAIL_LENGTH)}…` : redacted
+}
+
 export function formatExtractionFailure(result: FailureInfo): string {
   const where = result.browser ? ` (${result.browser})` : ''
   const summary = SUMMARIES[result.reason](where)
   const remedy = REMEDIES[result.reason]
   const hint = result.reason === 'keychain_denied' ? mapKeychainDetail(result.detail) : ''
-  return [summary, remedy, hint].filter(Boolean).join(' ')
+  const message = [summary, remedy, hint].filter(Boolean).join(' ')
+
+  const detail =
+    DETAIL_REASONS.has(result.reason) && result.detail ? sanitizeDetail(result.detail) : ''
+  return detail ? `${message}\n  Detail: ${detail}` : message
 }
 
 function mapKeychainDetail(detail: string | undefined): string {

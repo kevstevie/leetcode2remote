@@ -48,6 +48,22 @@ describe('buildOnAuthFailure auto stage', () => {
     expect(output).toContain('npm rebuild better-sqlite3')
   })
 
+  it('logs the underlying detail so the user can see why extraction failed', async () => {
+    refreshMock.mockResolvedValue({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      browser: 'chrome',
+      detail: 'EACCES: permission denied',
+    })
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+    const handler = buildOnAuthFailure(config, autoOnly)
+    await handler?.('auto')
+
+    const output = warn.mock.calls.map(([msg]) => msg).join('\n')
+    expect(output).toContain('EACCES: permission denied')
+  })
+
   it('logs a remedy for reasons the short refresh table used to omit', async () => {
     refreshMock.mockResolvedValue({ ok: false, reason: 'decrypt_failed', browser: 'chrome' })
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
