@@ -184,4 +184,50 @@ describe('formatExtractionFailure detail', () => {
     expect(detailLine.length).toBeLessThanOrEqual(220)
     expect(detailLine.endsWith('…')).toBe(true)
   })
+
+  it('redacts a token that straddles the truncation boundary before cutting', () => {
+    const token = 'Zq8Xv2Lm9Rt4Yp7Wn3Hc6Kd1Bf5Gs0Jt8Ne2Ua4'
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: `${'ab '.repeat(60)}${token} trailing`,
+    })
+    expect(msg).not.toContain(token.slice(0, 16))
+  })
+
+  it('redacts URL-encoded tokens', () => {
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'decrypt_failed',
+      detail: 'bad value eyJhbGciOiJIUzI1NiJ9%2Eaaaaaaaaaaaaaaaaaaaa%2Ebbbbbbb in row',
+    })
+    expect(msg).not.toContain('eyJhbGci')
+    expect(msg).toContain('[redacted]')
+  })
+
+  it('keeps ordinary file paths readable', () => {
+    const msg = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: "EACCES: permission denied, open '/var/folders/ab/cd/T/lcp-cookie-x/cookies.db'",
+    })
+    expect(msg).toContain('/var/folders/ab/cd/T/lcp-cookie-x/cookies.db')
+  })
+
+  it('only rewrites the home directory at a path boundary', () => {
+    const home = homedir()
+    const sibling = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: `EACCES: permission denied, open '${home}extra/x'`,
+    })
+    expect(sibling).not.toContain('~extra')
+
+    const exact = formatExtractionFailure({
+      ok: false,
+      reason: 'cookie_db_unreadable',
+      detail: `ENOENT: no such file or directory, scandir '${home}'`,
+    })
+    expect(exact).toContain("scandir '~'")
+  })
 })

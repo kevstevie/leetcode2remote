@@ -54,13 +54,22 @@ const DETAIL_REASONS: ReadonlySet<FailureReason> = new Set<FailureReason>([
 ])
 
 const MAX_DETAIL_LENGTH = 200
-const TOKEN_LIKE = /[A-Za-z0-9._~+=-]{32,}/g
+// '/' is deliberately not part of the token charset so file paths stay readable.
+const TOKEN_LIKE = /[A-Za-z0-9._~+=%-]{32,}/g
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function redactHome(text: string): string {
+  const home = homedir()
+  if (home.length <= 1) return text
+  return text.replace(new RegExp(`${escapeRegExp(home)}(?![\\w.-])`, 'g'), '~')
+}
 
 function sanitizeDetail(detail: string): string {
-  const home = homedir()
   const firstLine = (detail.split('\n')[0] ?? '').trim()
-  const withoutHome = home.length > 1 ? firstLine.split(home).join('~') : firstLine
-  const redacted = withoutHome.replace(TOKEN_LIKE, '[redacted]')
+  const redacted = redactHome(firstLine).replace(TOKEN_LIKE, '[redacted]')
   return redacted.length > MAX_DETAIL_LENGTH ? `${redacted.slice(0, MAX_DETAIL_LENGTH)}…` : redacted
 }
 
