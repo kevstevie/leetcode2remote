@@ -62,7 +62,10 @@ async function refreshWithFallback(
   const first = await refreshSessionCookie(config, { browser: preferred, interactive })
   if (first.ok) return first
 
-  logger.warn(`Preferred browser (${preferred}) didn't yield a fresh cookie. Trying other browsers...`)
+  logger.warn(
+    `Preferred browser (${preferred}) didn't yield a fresh cookie: ${formatExtractionFailure(first)}`
+  )
+  logger.info('Trying other browsers...')
   return refreshSessionCookie(config, { interactive })
 }
 

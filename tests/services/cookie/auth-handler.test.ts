@@ -17,6 +17,61 @@ const config: Config = {
 
 const autoOnly = { autoRefresh: true, interactiveRefresh: false, openBrowser: false, isTTY: false }
 
+describe('buildOnAuthFailure preferred browser fallback', () => {
+  const withPreferred: Config = {
+    ...config,
+    leetcode: { ...config.leetcode, preferredBrowser: 'chrome' },
+  }
+
+  beforeEach(() => {
+    refreshMock.mockReset()
+    vi.restoreAllMocks()
+  })
+
+  it('logs why the preferred browser failed before trying the others', async () => {
+    refreshMock
+      .mockResolvedValueOnce({ ok: false, reason: 'keychain_denied', browser: 'chrome' })
+      .mockResolvedValueOnce({ ok: true, newCookie: 'fresh-cookie', browser: 'firefox' })
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'success').mockImplementation(() => {})
+
+    const handler = buildOnAuthFailure(withPreferred, autoOnly)
+    await expect(handler?.('auto')).resolves.toBe('fresh-cookie')
+
+    const output = warn.mock.calls.map(([msg]) => msg).join('\n')
+    expect(output).toContain('Preferred browser (chrome)')
+    expect(output).toContain('Keychain')
+    expect(refreshMock).toHaveBeenNthCalledWith(1, withPreferred, expect.objectContaining({ browser: 'chrome' }))
+    expect(refreshMock).toHaveBeenNthCalledWith(2, withPreferred, expect.not.objectContaining({ browser: 'chrome' }))
+  })
+
+  it('keeps the preferred browser reason visible when the other browsers fail too', async () => {
+    refreshMock
+      .mockResolvedValueOnce({ ok: false, reason: 'keychain_denied', browser: 'chrome' })
+      .mockResolvedValueOnce({ ok: false, reason: 'cookie_not_found', browser: 'arc' })
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
+
+    const handler = buildOnAuthFailure(withPreferred, autoOnly)
+    await expect(handler?.('auto')).resolves.toBeNull()
+
+    const output = warn.mock.calls.map(([msg]) => msg).join('\n')
+    expect(output).toContain('Keychain')
+    expect(output).toContain('LEETCODE_SESSION cookie not found')
+  })
+
+  it('does not run a second refresh when the preferred browser succeeds', async () => {
+    refreshMock.mockResolvedValueOnce({ ok: true, newCookie: 'fresh-cookie', browser: 'chrome' })
+    vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    vi.spyOn(logger, 'success').mockImplementation(() => {})
+
+    const handler = buildOnAuthFailure(withPreferred, autoOnly)
+    await expect(handler?.('auto')).resolves.toBe('fresh-cookie')
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('buildOnAuthFailure auto stage', () => {
   beforeEach(() => {
     refreshMock.mockReset()
