@@ -3,7 +3,7 @@ import { existsSync } from 'fs'
 import { saveConfig, configExists, getConfigPath } from '../config/loader.js'
 import { logger } from '../utils/logger.js'
 import { extractLeetCodeSession, isPlatformSupported } from '../services/cookie/index.js'
-import { formatExtractionFailure } from './cookie.js'
+import { formatExtractionFailure } from '../services/cookie/messages.js'
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve))

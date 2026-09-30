@@ -2,17 +2,20 @@ export type BrowserId = 'chrome' | 'firefox' | 'edge' | 'brave' | 'arc'
 
 export const SUPPORTED_BROWSERS: readonly BrowserId[] = ['chrome', 'edge', 'brave', 'arc', 'firefox'] as const
 
-export type ExtractionFailureReason =
-  | 'unsupported_platform'
-  | 'no_browser_detected'
-  | 'browser_not_installed'
-  | 'cookie_db_missing'
-  | 'cookie_not_found'
-  | 'browser_running'
-  | 'keychain_denied'
-  | 'decrypt_failed'
-  | 'native_module_missing'
-  | 'invalid_cookie_format'
+export const EXTRACTION_FAILURE_REASONS = [
+  'unsupported_platform',
+  'no_browser_detected',
+  'browser_not_installed',
+  'cookie_db_missing',
+  'cookie_not_found',
+  'browser_running',
+  'keychain_denied',
+  'decrypt_failed',
+  'native_module_missing',
+  'invalid_cookie_format',
+] as const
+
+export type ExtractionFailureReason = (typeof EXTRACTION_FAILURE_REASONS)[number]
 
 export interface ExtractionSuccess {
   ok: true

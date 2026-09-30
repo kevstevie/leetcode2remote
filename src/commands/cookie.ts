@@ -5,7 +5,8 @@ import {
   extractLeetCodeSession,
   isPlatformSupported,
 } from '../services/cookie/index.js'
-import type { BrowserId, ExtractionResult } from '../services/cookie/types.js'
+import { formatExtractionFailure } from '../services/cookie/messages.js'
+import type { BrowserId } from '../services/cookie/types.js'
 
 export interface CookieOptions {
   browser?: BrowserId
@@ -54,54 +55,5 @@ export function cookieListCommand(): void {
   console.log('Detected browsers:')
   for (const { browser, cookieDbPath } of detected) {
     console.log(`  - ${browser}: ${cookieDbPath}`)
-  }
-}
-
-function mapKeychainDetail(detail: string | undefined): string {
-  if (!detail) return ''
-  const lower = detail.toLowerCase()
-  if (lower.includes('user canceled') || lower.includes('user cancelled')) {
-    return 'Looks like the prompt was canceled — retry and click "Always Allow".'
-  }
-  if (lower.includes('user interaction is not allowed') || lower.includes('errsecinteractionnotallowed')) {
-    return 'Keychain interaction is currently disabled (e.g. screen locked).'
-  }
-  if (lower.includes('could not be found') || lower.includes('errsecitemnotfound')) {
-    return 'Keychain entry not found — the browser may not be installed or has not stored a key yet.'
-  }
-  if (lower.includes('authentication failed') || lower.includes('errsecauthfailed')) {
-    return 'Keychain authentication failed.'
-  }
-  return ''
-}
-
-export function formatExtractionFailure(result: ExtractionResult & { ok: false }): string {
-  const browser = result.browser ? ` (${result.browser})` : ''
-  switch (result.reason) {
-    case 'unsupported_platform':
-      return 'Auto cookie extraction is currently supported on macOS only.'
-    case 'no_browser_detected':
-      return 'No supported browser found. Install Chrome, Firefox, Edge, Brave, or Arc and log in to leetcode.com.'
-    case 'browser_not_installed':
-      return `Browser not installed${browser}.`
-    case 'cookie_db_missing':
-      return `Browser cookie database not found${browser}. Open the browser at least once and log in to leetcode.com.`
-    case 'cookie_not_found':
-      return `LEETCODE_SESSION cookie not found${browser}. Log in to leetcode.com in that browser, then retry.`
-    case 'browser_running':
-      return `Browser is running and holds the cookie database lock${browser}. Close the browser or use a different one with --browser.`
-    case 'keychain_denied': {
-      const hint = mapKeychainDetail(result.detail)
-      const suffix = hint ? ` ${hint}` : ''
-      return `macOS Keychain access was denied${browser}. Allow access when prompted, or click "Always Allow".${suffix}`
-    }
-    case 'decrypt_failed':
-      return `Failed to decrypt cookie${browser}. The encryption format may have changed.`
-    case 'native_module_missing':
-      return 'Native SQLite module is unavailable. Run `npm rebuild better-sqlite3` and retry.'
-    case 'invalid_cookie_format':
-      return `Browser returned an invalid LEETCODE_SESSION value${browser}. You may not be logged in.`
-    default:
-      return `Cookie extraction failed${browser}.`
   }
 }

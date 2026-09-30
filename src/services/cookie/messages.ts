@@ -1,36 +1,68 @@
-import type { ExtractionFailureReason } from './types.js'
-import type { RefreshResult } from './refresh.js'
+import type { BrowserId, ExtractionFailureReason } from './types.js'
 
-const REASONS: Record<ExtractionFailureReason | 'lock_timeout', string> = {
-  unsupported_platform: 'auto-extraction not supported on this platform',
-  no_browser_detected: 'no supported browser detected',
-  browser_not_installed: 'browser not installed',
-  cookie_db_missing: 'browser cookie database not found',
-  cookie_not_found: 'LEETCODE_SESSION not found in browser (log in to leetcode.com)',
-  browser_running: 'browser is running and holds the cookie database lock',
-  keychain_denied: 'macOS Keychain access denied',
-  decrypt_failed: 'failed to decrypt cookie',
-  native_module_missing: 'better-sqlite3 native module unavailable',
-  invalid_cookie_format: 'browser cookie matches the already-failing one (you may be logged out)',
-  lock_timeout: 'another lcp process is refreshing; timed out',
+export type FailureReason = ExtractionFailureReason | 'lock_timeout'
+
+export interface FailureInfo {
+  readonly ok: false
+  readonly reason: FailureReason
+  readonly browser?: BrowserId
+  readonly detail?: string
 }
 
-/**
- * Environmental failures are not fixed by re-running `leetcode-commit cookie` — that path
- * would fail identically — so each one carries the command that actually resolves it.
- */
-const REMEDIES: Partial<Record<ExtractionFailureReason | 'lock_timeout', string>> = {
-  native_module_missing: 'run `npm rebuild better-sqlite3`',
-  keychain_denied: 'retry and choose "Always Allow" at the Keychain prompt',
-  browser_running: 'quit the browser, or pass --browser <other>',
-  cookie_not_found: 'log in to leetcode.com in that browser',
-  cookie_db_missing: 'open the browser once and log in to leetcode.com',
-  no_browser_detected: 'install Chrome, Firefox, Edge, Brave, or Arc and log in',
+const MANUAL_FALLBACK =
+  'Or set the cookie manually: `leetcode-commit config set leetcode.sessionCookie <value>`.'
+
+const SUMMARIES: Record<FailureReason, (where: string) => string> = {
+  unsupported_platform: () => 'Auto cookie extraction is currently supported on macOS only.',
+  no_browser_detected: () => 'No supported browser found.',
+  browser_not_installed: (where) => `Browser not installed${where}.`,
+  cookie_db_missing: (where) => `Browser cookie database not found${where}.`,
+  cookie_not_found: (where) => `LEETCODE_SESSION cookie not found${where}.`,
+  browser_running: (where) => `Browser is running and holds the cookie database lock${where}.`,
+  keychain_denied: (where) => `macOS Keychain access was denied${where}.`,
+  decrypt_failed: (where) => `Failed to decrypt cookie${where}.`,
+  native_module_missing: () => 'Native SQLite module is unavailable.',
+  invalid_cookie_format: (where) => `Browser returned an unusable LEETCODE_SESSION value${where}.`,
+  lock_timeout: () => 'Another lcp process is refreshing the cookie; timed out waiting for it.',
 }
 
-export function formatRefreshFailure(result: RefreshResult & { ok: false }): string {
-  const browser = result.browser ? ` [${result.browser}]` : ''
+const REMEDIES: Record<FailureReason, string> = {
+  unsupported_platform: MANUAL_FALLBACK,
+  no_browser_detected: 'Install Chrome, Firefox, Edge, Brave, or Arc and log in to leetcode.com.',
+  browser_not_installed: 'Install it, or pick another one with --browser <chrome|firefox|edge|brave|arc>.',
+  cookie_db_missing: 'Open the browser at least once and log in to leetcode.com.',
+  cookie_not_found: 'Log in to leetcode.com in that browser, then retry.',
+  browser_running: 'Close the browser or use a different one with --browser.',
+  keychain_denied: 'Allow access when prompted, or click "Always Allow".',
+  decrypt_failed: `The browser encryption format may have changed. Update lcp and retry. ${MANUAL_FALLBACK}`,
+  native_module_missing: 'Run `npm rebuild better-sqlite3` and retry.',
+  invalid_cookie_format:
+    'You may be logged out, or the cookie is the one that just failed. Log in to leetcode.com in that browser again, then retry.',
+  lock_timeout: 'Retry in a moment.',
+}
+
+export function formatExtractionFailure(result: FailureInfo): string {
+  const where = result.browser ? ` (${result.browser})` : ''
+  const summary = SUMMARIES[result.reason](where)
   const remedy = REMEDIES[result.reason]
-  const suffix = remedy ? ` — ${remedy}` : ''
-  return `${REASONS[result.reason] ?? 'unknown'}${browser}${suffix}`
+  const hint = result.reason === 'keychain_denied' ? mapKeychainDetail(result.detail) : ''
+  return [summary, remedy, hint].filter(Boolean).join(' ')
+}
+
+function mapKeychainDetail(detail: string | undefined): string {
+  if (!detail) return ''
+  const lower = detail.toLowerCase()
+  if (lower.includes('user canceled') || lower.includes('user cancelled')) {
+    return 'Looks like the prompt was canceled — retry and click "Always Allow".'
+  }
+  if (lower.includes('user interaction is not allowed') || lower.includes('errsecinteractionnotallowed')) {
+    return 'Keychain interaction is currently disabled (e.g. screen locked).'
+  }
+  if (lower.includes('could not be found') || lower.includes('errsecitemnotfound')) {
+    return 'Keychain entry not found — the browser may not be installed or has not stored a key yet.'
+  }
+  if (lower.includes('authentication failed') || lower.includes('errsecauthfailed')) {
+    return 'Keychain authentication failed.'
+  }
+  return ''
 }

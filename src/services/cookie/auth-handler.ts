@@ -2,7 +2,7 @@ import { createInterface } from 'readline'
 import { spawn } from 'child_process'
 import { logger } from '../../utils/logger.js'
 import { refreshSessionCookie, type RefreshResult } from './refresh.js'
-import { formatRefreshFailure } from './messages.js'
+import { formatExtractionFailure } from './messages.js'
 import type { Config } from '../../config/schema.js'
 import type { OnAuthFailure } from '../leetcode.js'
 
@@ -71,7 +71,7 @@ function handleRefreshResult(result: RefreshResult): string | null {
     logger.success(`Refreshed session cookie from ${result.browser} [redacted]`)
     return result.newCookie
   }
-  logger.warn(`Auto-refresh failed: ${formatRefreshFailure(result)}`)
+  logger.warn(`Auto-refresh failed: ${formatExtractionFailure(result)}`)
   return null
 }
 
